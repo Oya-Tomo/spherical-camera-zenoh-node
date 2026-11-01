@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-Unitree Go2に載せたRICOH THETA S用のZenohノードです。カメラのDual-Fisheye映像を360°のequirectangular画像と歪みのない透視投影viewに変換してJPEGでpublishし、各viewの向きを任意のZenoh clientから実行時に設定できます。
+RICOH THETA S用のZenohノードです。カメラのDual-Fisheye映像を360°のequirectangular画像と歪みのない透視投影viewに変換してJPEGでpublishし、各viewの向きを任意のZenoh clientから実行時に設定できます。
 
 ## クイックスタート
 
@@ -21,7 +21,7 @@ $ uv run node.py
 viewを表示し、矢印キーで向きを変えます。
 
 ```console
-$ uv run --group example examples/viewer.py spherical_camera/view/operator
+$ uv run --group example examples/viewer.py spherical_camera/view/sub
 ```
 
 ## ドキュメント

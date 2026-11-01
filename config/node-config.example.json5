@@ -23,8 +23,8 @@
     size: [640, 480],
     jpeg_quality: 90,
     channels: [
-      {view_key: "agent"},
-      {view_key: "operator"},
+      {view_key: "main"},
+      {view_key: "sub"},
     ],
   },
 

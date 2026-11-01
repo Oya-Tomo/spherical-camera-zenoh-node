@@ -57,7 +57,7 @@ class ViewerRunTests(unittest.TestCase):
         ):
             open_session.return_value.__enter__.return_value = self.session
             font.return_value.render.return_value = pygame.Surface((1, 1))
-            viewer.run(MagicMock(), "camera/view/operator")
+            viewer.run(MagicMock(), "camera/view/sub")
         return set_mode, font.return_value.render
 
     def test_keys_turn_the_view_through_direction_queries(self) -> None:
@@ -81,7 +81,7 @@ class ViewerRunTests(unittest.TestCase):
         )
         self.assertEqual(
             {call.args[0] for call in self.session.get.call_args_list},
-            {"camera/view/operator/direction"},
+            {"camera/view/sub/direction"},
         )
         rendered_lines = [call.args[0] for call in render.call_args_list]
         self.assertIn("Yaw: +25.0 deg", rendered_lines)
@@ -113,7 +113,7 @@ class ViewerMainTests(unittest.TestCase):
             redirect_stderr(stderr),
             patch("examples.viewer.run", side_effect=RuntimeError("no node")),
         ):
-            exit_code = viewer.main(["camera/view/operator"])
+            exit_code = viewer.main(["camera/view/sub"])
 
         self.assertEqual(exit_code, 1)
         self.assertIn("[ERROR] no node", stderr.getvalue())

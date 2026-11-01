@@ -2,7 +2,7 @@
 
 [日本語](README_ja.md)
 
-A Zenoh node for a RICOH THETA S mounted on a Unitree Go2. It turns the camera's dual-fisheye stream into a 360° equirectangular image and undistorted perspective views, publishes them as JPEG, and lets any Zenoh client set the direction of each view at runtime.
+A Zenoh node for a RICOH THETA S. It turns the camera's dual-fisheye stream into a 360° equirectangular image and undistorted perspective views, publishes them as JPEG, and lets any Zenoh client set the direction of each view at runtime.
 
 ## Quick start
 
@@ -21,7 +21,7 @@ $ uv run node.py
 Display a view and turn it with the arrow keys:
 
 ```console
-$ uv run --group example examples/viewer.py spherical_camera/view/operator
+$ uv run --group example examples/viewer.py spherical_camera/view/sub
 ```
 
 ## Documentation
