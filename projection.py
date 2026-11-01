@@ -84,10 +84,12 @@ class RemapTable:
 
 
 def build_remap_table(
-    body_rays: Rays, lenses: DualFisheyeLenses, mount: MountConfig
+    reference_rays: Rays, lenses: DualFisheyeLenses, mount: MountConfig
 ) -> RemapTable:
-    body_from_camera = rotation_matrix(mount.roll_deg, mount.pitch_deg, mount.yaw_deg)
-    camera_rays = body_rays @ body_from_camera
+    reference_from_camera = rotation_matrix(
+        mount.roll_deg, mount.pitch_deg, mount.yaw_deg
+    )
+    camera_rays = reference_rays @ reference_from_camera
     front_off_axis_angle = np.arccos(np.clip(camera_rays[..., 0], -1.0, 1.0))
     lens_maps: list[tuple[FloatArray, FloatArray]] = []
     for lens, optical_axis_sign, off_axis_angle in (

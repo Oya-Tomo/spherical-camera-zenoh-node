@@ -65,7 +65,7 @@ source: "/dev/v4l/by-id/usb-Ricoh_Company__Ltd._RICOH_THETA_S_00250209-video-ind
 
 ## 取り付け向き
 
-`mount`は、胴体座標系（x前、y左、z上）に対するカメラの向きです。`roll_deg`、`pitch_deg`、`yaw_deg`は、胴体の軸まわりにyaw、pitch、rollの順で適用します（REP-103）。カメラ座標系はfrontレンズの方向がx、カメラの上方向がzです。
+`mount`は、基準座標系（x前、y左、z上）に対するカメラの向きです。`roll_deg`、`pitch_deg`、`yaw_deg`は、基準座標系の軸まわりにyaw、pitch、rollの順で適用します（REP-103）。カメラ座標系はfrontレンズの方向がx、カメラの上方向がzです。
 
 - `yaw_deg`が正だとfrontレンズは左を向きます。
 - `pitch_deg`が正だとfrontレンズは下を向きます。

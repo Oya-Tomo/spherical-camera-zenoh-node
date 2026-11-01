@@ -38,7 +38,7 @@ THETA Sの解像度は1°あたり約3pixelです。`views.fov_deg`を狭める�
 | `{prefix}/view/{view_key}` | Publication | 透視投影JPEG（`image/jpeg`）。向きを表すJSON attachment `{"yaw_deg": <number>}`付き |
 | `{prefix}/view/{view_key}/direction` | Queryable | 下記参照 |
 
-向きは胴体座標系で表します。yaw `0`が前方で、正のyawは左向きです。すべてのviewは水平方向を向きます。
+向きは基準座標系で表します。yaw `0`が前方で、正のyawは左向きです。すべてのviewは水平方向を向きます。
 
 direction keyへのqueryは次のように応答します。
 

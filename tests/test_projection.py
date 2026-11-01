@@ -43,7 +43,7 @@ def as_ray_grid(*rays: tuple[float, float, float]) -> npt.NDArray[np.float64]:
 
 
 class RayTests(unittest.TestCase):
-    def test_equirectangular_columns_follow_yaw_around_the_body(self) -> None:
+    def test_equirectangular_columns_follow_yaw(self) -> None:
         rays = equirectangular_rays((360, 180))
         equator = rays[90]
 
