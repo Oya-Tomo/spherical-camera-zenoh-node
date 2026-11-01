@@ -65,7 +65,7 @@ To check the geometry, start the node and turn a view to a seam with the viewer.
 
 ## Mount orientation
 
-`mount` is the orientation of the camera relative to the body frame (x forward, y left, z up). `roll_deg`, `pitch_deg`, and `yaw_deg` are applied in the order yaw, pitch, roll about the body axes (REP-103). The camera frame has x along the front lens and z toward the top of the camera.
+`mount` is the orientation of the camera relative to the reference frame (x forward, y left, z up). `roll_deg`, `pitch_deg`, and `yaw_deg` are applied in the order yaw, pitch, roll about the reference axes (REP-103). The camera frame has x along the front lens and z toward the top of the camera.
 
 - Positive `yaw_deg` turns the front lens to the left.
 - Positive `pitch_deg` tilts the front lens down.

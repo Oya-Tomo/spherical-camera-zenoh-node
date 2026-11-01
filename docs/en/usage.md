@@ -38,7 +38,7 @@ The THETA S resolves about 3 pixels per degree. A narrower `views.fov_deg` magni
 | `{prefix}/view/{view_key}` | Publication | Perspective JPEG (`image/jpeg`) with the JSON attachment `{"yaw_deg": <number>}` stating its direction |
 | `{prefix}/view/{view_key}/direction` | Queryable | See below |
 
-Directions use the body frame: yaw `0` is forward and positive yaw turns left. Every view looks horizontally.
+Directions use the reference frame: yaw `0` is forward and positive yaw turns left. Every view looks horizontally.
 
 A query on a direction key:
 
