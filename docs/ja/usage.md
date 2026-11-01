@@ -38,7 +38,7 @@ THETA Sの解像度は1°あたり約3pixelです。`views.fov_deg`を狭める�
 | `{prefix}/view/{view_key}` | Publication | 透視投影JPEG（`image/jpeg`）。向きを表すJSON attachment `{"yaw_deg": <number>}`付き |
 | `{prefix}/view/{view_key}/direction` | Queryable | 下記参照 |
 
-向きはGo2の胴体座標系で表します。yaw `0`が前方で、正のyawは左向きです。すべてのviewは水平方向を向きます。
+向きは胴体座標系で表します。yaw `0`が前方で、正のyawは左向きです。すべてのviewは水平方向を向きます。
 
 direction keyへのqueryは次のように応答します。
 
@@ -55,7 +55,7 @@ import zenoh
 
 with zenoh.open(zenoh.Config()) as session:
     replies = session.get(
-        "spherical_camera/view/agent/direction",
+        "spherical_camera/view/main/direction",
         payload=json.dumps({"yaw_deg": 90}),
         encoding="application/json",
         timeout=1.0,
@@ -68,13 +68,13 @@ with zenoh.open(zenoh.Config()) as session:
 ## Viewer
 
 ```console
-$ uv run --group example examples/viewer.py spherical_camera/view/operator
+$ uv run --group example examples/viewer.py spherical_camera/view/sub
 ```
 
 | キー | 動作 |
 | --- | --- |
 | `Left` / `Right` | viewを5°回転。押し続けると回り続けます |
-| `R` | ロボットの前方を向く |
+| `R` | 前方（yaw `0`）を向く |
 | `Q` / `Esc` | 終了 |
 
 viewerは起動時にノードから現在の向きを読み込むため、接続しただけでviewが動くことはありません。向きとキー操作はwindow上に文字で表示されます。`examples/viewer-zenoh-config.json5`は`tcp/127.0.0.1:7447`へ接続します。別hostへ接続する場合は`--zenoh-config`を指定してください。

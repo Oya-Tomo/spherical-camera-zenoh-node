@@ -17,7 +17,7 @@ LENS = {
     "rotation_deg": 0.0,
 }
 VALID_CONFIG: dict[str, Any] = {
-    "zenoh_key_prefix": "robot/spherical_camera",
+    "zenoh_key_prefix": "camera/spherical",
     "source": "/dev/video4",
     "mount": {"roll_deg": 0.0, "pitch_deg": 0.0, "yaw_deg": 0.0},
     "lenses": {"front": LENS, "back": LENS},
@@ -27,8 +27,8 @@ VALID_CONFIG: dict[str, Any] = {
         "size": [640, 480],
         "jpeg_quality": 90,
         "channels": [
-            {"view_key": "agent"},
-            {"view_key": "operator", "initial_yaw_deg": 180.0},
+            {"view_key": "main"},
+            {"view_key": "sub", "initial_yaw_deg": 180.0},
         ],
     },
     "publisher": {
@@ -59,7 +59,7 @@ class ExampleConfigTests(unittest.TestCase):
         assert config.views is not None
         self.assertIsNotNone(config.equirectangular)
         self.assertEqual(
-            [view.view_key for view in config.views.channels], ["agent", "operator"]
+            [view.view_key for view in config.views.channels], ["main", "sub"]
         )
 
     def test_example_zenoh_configs_are_valid(self) -> None:
@@ -101,7 +101,7 @@ class NodeConfigTests(unittest.TestCase):
             "no outputs": config_without("equirectangular", "views"),
             "missing mount": config_without("mount"),
             "unknown field": config_with(("unknown",), 1),
-            "wildcard prefix": config_with(("zenoh_key_prefix",), "robot/*"),
+            "wildcard prefix": config_with(("zenoh_key_prefix",), "camera/*"),
             "blank prefix": config_with(("zenoh_key_prefix",), " "),
             "blank source": config_with(("source",), " "),
             "negative source index": config_with(("source",), -1),
@@ -117,7 +117,7 @@ class NodeConfigTests(unittest.TestCase):
                 ("views", "channels", 0, "view_key"), "a/b"
             ),
             "duplicate view keys": config_with(
-                ("views", "channels"), [{"view_key": "agent"}, {"view_key": "agent"}]
+                ("views", "channels"), [{"view_key": "main"}, {"view_key": "main"}]
             ),
             "zero frequency": config_with(("publisher", "publish_frequency_hz"), 0.0),
             "unknown reliability": config_with(("publisher", "reliability"), "maybe"),

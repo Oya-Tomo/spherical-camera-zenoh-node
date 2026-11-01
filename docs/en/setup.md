@@ -34,7 +34,7 @@ The THETA S is a webcam only in live streaming mode, as described in the officia
 
 Linux then recognizes the camera as a UVC device that delivers 1280x720 MotionJPEG at 15 fps, with the two fisheye images side by side. In the normal mode the camera appears only as a still image device and no `/dev/video*` node is created.
 
-The camera runs on its battery while streaming. The battery runs down when the USB port supplies less than 1.5 A, so power the camera from a port that supplies at least 1.5 A on the robot.
+The camera runs on its battery while streaming. The battery runs down when the USB port supplies less than 1.5 A, so power the camera from a port that supplies at least 1.5 A.
 
 ## Camera source
 
@@ -65,13 +65,13 @@ To check the geometry, start the node and turn a view to a seam with the viewer.
 
 ## Mount orientation
 
-`mount` is the orientation of the camera relative to the Go2 body frame (x forward, y left, z up). `roll_deg`, `pitch_deg`, and `yaw_deg` are applied in the order yaw, pitch, roll about the body axes (REP-103). The camera frame has x along the front lens and z toward the top of the camera.
+`mount` is the orientation of the camera relative to the body frame (x forward, y left, z up). `roll_deg`, `pitch_deg`, and `yaw_deg` are applied in the order yaw, pitch, roll about the body axes (REP-103). The camera frame has x along the front lens and z toward the top of the camera.
 
 - Positive `yaw_deg` turns the front lens to the left.
 - Positive `pitch_deg` tilts the front lens down.
 - Positive `roll_deg` tilts the top of the camera to the right.
 
-Set `mount` so that a view facing yaw `0` shows the robot's forward direction with a level horizon.
+Set `mount` so that a view facing yaw `0` looks forward with a level horizon.
 
 ## Zenoh connection
 

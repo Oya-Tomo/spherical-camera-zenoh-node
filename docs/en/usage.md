@@ -38,7 +38,7 @@ The THETA S resolves about 3 pixels per degree. A narrower `views.fov_deg` magni
 | `{prefix}/view/{view_key}` | Publication | Perspective JPEG (`image/jpeg`) with the JSON attachment `{"yaw_deg": <number>}` stating its direction |
 | `{prefix}/view/{view_key}/direction` | Queryable | See below |
 
-Directions use the Go2 body frame: yaw `0` is forward and positive yaw turns left. Every view looks horizontally.
+Directions use the body frame: yaw `0` is forward and positive yaw turns left. Every view looks horizontally.
 
 A query on a direction key:
 
@@ -55,7 +55,7 @@ import zenoh
 
 with zenoh.open(zenoh.Config()) as session:
     replies = session.get(
-        "spherical_camera/view/agent/direction",
+        "spherical_camera/view/main/direction",
         payload=json.dumps({"yaw_deg": 90}),
         encoding="application/json",
         timeout=1.0,
@@ -68,13 +68,13 @@ with zenoh.open(zenoh.Config()) as session:
 ## Viewer
 
 ```console
-$ uv run --group example examples/viewer.py spherical_camera/view/operator
+$ uv run --group example examples/viewer.py spherical_camera/view/sub
 ```
 
 | Key | Action |
 | --- | --- |
 | `Left` / `Right` | Turn the view by 5°; holding a key keeps turning |
-| `R` | Face the robot's forward direction |
+| `R` | Face forward (yaw `0`) |
 | `Q` / `Esc` | Quit |
 
 The viewer reads the current direction from the node at startup, so connecting does not move the view, and draws the direction and the key operations on the window. `examples/viewer-zenoh-config.json5` connects to `tcp/127.0.0.1:7447`; pass `--zenoh-config` to reach another host.

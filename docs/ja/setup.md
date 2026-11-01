@@ -34,7 +34,7 @@ THETA Sはライブストリーミングモードのときだけwebカメラに�
 
 LinuxはカメラをMotionJPEG 1280x720・15 fpsのUVC deviceとして認識し、2つの魚眼画像が左右に並んだframeが届きます。通常モードで接続した場合は静止画deviceとしてだけ認識され、`/dev/video*`は作られません。
 
-配信中のカメラはバッテリーでも動作します。USBの供給電力が1.5A未満だとバッテリーが減っていくため、ロボットでは1.5A以上を供給できるportから給電してください。
+配信中のカメラはバッテリーでも動作します。USBの供給電力が1.5A未満だとバッテリーが減っていくため、1.5A以上を供給できるportから給電してください。
 
 ## カメラsource
 
@@ -65,13 +65,13 @@ source: "/dev/v4l/by-id/usb-Ricoh_Company__Ltd._RICOH_THETA_S_00250209-video-ind
 
 ## 取り付け向き
 
-`mount`は、Go2の胴体座標系（x前、y左、z上）に対するカメラの向きです。`roll_deg`、`pitch_deg`、`yaw_deg`は、胴体の軸まわりにyaw、pitch、rollの順で適用します（REP-103）。カメラ座標系はfrontレンズの方向がx、カメラの上方向がzです。
+`mount`は、胴体座標系（x前、y左、z上）に対するカメラの向きです。`roll_deg`、`pitch_deg`、`yaw_deg`は、胴体の軸まわりにyaw、pitch、rollの順で適用します（REP-103）。カメラ座標系はfrontレンズの方向がx、カメラの上方向がzです。
 
 - `yaw_deg`が正だとfrontレンズは左を向きます。
 - `pitch_deg`が正だとfrontレンズは下を向きます。
 - `roll_deg`が正だとカメラの上側は右に傾きます。
 
-yaw `0`のviewにロボットの前方が水平に写るよう`mount`を設定します。
+yaw `0`のviewが前方を水平に向くよう`mount`を設定します。
 
 ## Zenohの接続
 

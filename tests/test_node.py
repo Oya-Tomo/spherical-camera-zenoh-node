@@ -30,7 +30,7 @@ SMALL_VIEWS = ViewsConfig.model_validate(
         "fov_deg": 90.0,
         "size": [64, 48],
         "jpeg_quality": 80,
-        "channels": [{"view_key": "agent"}],
+        "channels": [{"view_key": "main"}],
     }
 )
 NO_MOUNT = MountConfig(roll_deg=0.0, pitch_deg=0.0, yaw_deg=0.0)
@@ -81,7 +81,7 @@ class ViewDirectionTests(unittest.TestCase):
 
     def test_direction_key_extends_the_view_image_key(self) -> None:
         self.assertEqual(
-            view_direction_key("camera/view/agent"), "camera/view/agent/direction"
+            view_direction_key("camera/view/main"), "camera/view/main/direction"
         )
 
 
@@ -217,8 +217,8 @@ class RunTests(unittest.TestCase):
             [call.args[0] for call in publisher_calls],
             [
                 "spherical_camera/equirectangular",
-                "spherical_camera/view/agent",
-                "spherical_camera/view/operator",
+                "spherical_camera/view/main",
+                "spherical_camera/view/sub",
             ],
         )
         self.assertEqual(
@@ -227,8 +227,8 @@ class RunTests(unittest.TestCase):
         self.assertEqual(
             [call.args[0] for call in self.session.declare_queryable.call_args_list],
             [
-                "spherical_camera/view/agent/direction",
-                "spherical_camera/view/operator/direction",
+                "spherical_camera/view/main/direction",
+                "spherical_camera/view/sub/direction",
             ],
         )
         self.assertEqual(len(publish_frames_mock.call_args.args[1]), 3)

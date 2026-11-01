@@ -136,7 +136,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument(
         "view_image_key",
-        help="Zenoh key of a view, such as spherical_camera/view/operator.",
+        help="Zenoh key of a view, such as spherical_camera/view/sub.",
     )
     parser.add_argument(
         "--zenoh-config",
