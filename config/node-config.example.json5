@@ -1,0 +1,36 @@
+{
+  zenoh_key_prefix: "spherical_camera",
+  source: "/dev/v4l/by-id/usb-Ricoh_Company__Ltd._RICOH_THETA_S_00000000-video-index0",
+
+  mount: {
+    roll_deg: 0.0,
+    pitch_deg: 0.0,
+    yaw_deg: 0.0,
+  },
+
+  lenses: {
+    front: {center: [321.0, 318.3], radius: 300.0, fov_deg: 190.7, rotation_deg: 90.8},
+    back: {center: [957.9, 319.8], radius: 300.0, fov_deg: 190.7, rotation_deg: -90.0},
+  },
+
+  equirectangular: {
+    size: [1280, 640],
+    jpeg_quality: 90,
+  },
+
+  views: {
+    fov_deg: 90.0,
+    size: [640, 480],
+    jpeg_quality: 90,
+    channels: [
+      {view_key: "agent"},
+      {view_key: "operator"},
+    ],
+  },
+
+  publisher: {
+    publish_frequency_hz: 15.0,
+    congestion_control: "drop",
+    reliability: "best_effort",
+  },
+}
