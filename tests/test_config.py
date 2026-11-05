@@ -28,7 +28,7 @@ VALID_CONFIG: dict[str, Any] = {
         "jpeg_quality": 90,
         "channels": [
             {"view_key": "main"},
-            {"view_key": "sub", "initial_yaw_deg": 180.0},
+            {"view_key": "sub", "initial_yaw_deg": 180.0, "initial_pitch_deg": -30.0},
         ],
     },
     "publisher": {
@@ -75,13 +75,26 @@ class ExampleConfigTests(unittest.TestCase):
 
 
 class NodeConfigTests(unittest.TestCase):
-    def test_initial_yaw_defaults_to_forward(self) -> None:
+    def test_initial_direction_defaults_to_forward_and_level(self) -> None:
         config = NodeConfig.model_validate(VALID_CONFIG)
 
         assert config.views is not None
         self.assertEqual(
-            [view.initial_yaw_deg for view in config.views.channels], [0.0, 180.0]
+            [
+                (view.initial_yaw_deg, view.initial_pitch_deg)
+                for view in config.views.channels
+            ],
+            [(0.0, 0.0), (180.0, -30.0)],
         )
+
+    def test_initial_pitch_accepts_straight_up_and_down(self) -> None:
+        for pitch_deg in (-90.0, 90.0):
+            with self.subTest(pitch_deg=pitch_deg):
+                NodeConfig.model_validate(
+                    config_with(
+                        ("views", "channels", 0, "initial_pitch_deg"), pitch_deg
+                    )
+                )
 
     def test_source_accepts_device_path_or_index(self) -> None:
         for source in ("/dev/v4l/by-id/theta", 0):
@@ -115,6 +128,15 @@ class NodeConfigTests(unittest.TestCase):
             "no view channels": config_with(("views", "channels"), []),
             "multi-segment view key": config_with(
                 ("views", "channels", 0, "view_key"), "a/b"
+            ),
+            "initial pitch above 90": config_with(
+                ("views", "channels", 0, "initial_pitch_deg"), 90.5
+            ),
+            "initial pitch below -90": config_with(
+                ("views", "channels", 0, "initial_pitch_deg"), -120.0
+            ),
+            "infinite initial yaw": config_with(
+                ("views", "channels", 0, "initial_yaw_deg"), float("inf")
             ),
             "duplicate view keys": config_with(
                 ("views", "channels"), [{"view_key": "main"}, {"view_key": "main"}]

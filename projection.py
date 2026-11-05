@@ -57,7 +57,9 @@ def equirectangular_rays(size: tuple[int, int]) -> Rays:
     )
 
 
-def perspective_rays(size: tuple[int, int], fov_deg: float, yaw_deg: float) -> Rays:
+def perspective_rays(
+    size: tuple[int, int], fov_deg: float, yaw_deg: float, pitch_deg: float
+) -> Rays:
     width, height = size
     focal_length = 0.5 * width / math.tan(math.radians(fov_deg) / 2.0)
     right, down = np.meshgrid(
@@ -65,7 +67,7 @@ def perspective_rays(size: tuple[int, int], fov_deg: float, yaw_deg: float) -> R
     )
     rays = np.stack((np.full_like(right, focal_length), -right, -down), axis=-1)
     rays /= np.linalg.norm(rays, axis=-1, keepdims=True)
-    return rays @ rotation_matrix(0.0, 0.0, yaw_deg).T
+    return rays @ rotation_matrix(0.0, pitch_deg, yaw_deg).T
 
 
 @dataclass(frozen=True)

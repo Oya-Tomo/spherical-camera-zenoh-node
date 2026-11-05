@@ -73,6 +73,7 @@ class EquirectangularConfig(ConfigModel):
 class ViewChannelConfig(ConfigModel):
     view_key: StrictStr
     initial_yaw_deg: FiniteFloat = 0.0
+    initial_pitch_deg: Annotated[float, Field(strict=True, ge=-90, le=90)] = 0.0
 
     @field_validator("view_key")
     @classmethod

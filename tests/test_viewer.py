@@ -9,10 +9,10 @@ import numpy as np
 import pygame
 
 from examples import viewer
-from node import encode_view_direction, parse_view_direction
+from node import ViewDirection, parse_view_direction
 
 os.environ["SDL_VIDEODRIVER"] = "dummy"
-INITIAL_YAW_DEG = 30.0
+INITIAL_DIRECTION = ViewDirection(yaw_deg=30.0, pitch_deg=85.0)
 
 
 def key_down(key: int) -> list[pygame.event.Event]:
@@ -29,18 +29,20 @@ def image_sample(width: int, height: int) -> MagicMock:
 class ViewerRunTests(unittest.TestCase):
     def setUp(self) -> None:
         self.session = MagicMock()
-        self.requested_payloads: list[bytes | None] = []
+        self.requested_directions: list[ViewDirection | None] = []
         self.session.get.side_effect = self.answer_direction_query
         subscriber = self.session.declare_subscriber.return_value.__enter__.return_value
         subscriber.try_recv.side_effect = [image_sample(64, 48)] + [None] * 100
 
     def answer_direction_query(
-        self, key: str, *, payload: bytes | None, **_: object
+        self, key: str, *, payload: str | None, **_: object
     ) -> list[MagicMock]:
-        self.requested_payloads.append(payload)
-        yaw_deg = INITIAL_YAW_DEG if payload is None else parse_view_direction(payload)
+        direction = None if payload is None else parse_view_direction(payload.encode())
+        self.requested_directions.append(direction)
         reply = MagicMock(err=None)
-        reply.ok.payload.to_bytes.return_value = encode_view_direction(yaw_deg)
+        reply.ok.payload.to_bytes.return_value = (
+            (direction or INITIAL_DIRECTION).model_dump_json().encode()
+        )
         return [reply]
 
     def run_viewer(
@@ -60,12 +62,15 @@ class ViewerRunTests(unittest.TestCase):
             viewer.run(MagicMock(), "camera/view/sub")
         return set_mode, font.return_value.render
 
-    def test_keys_turn_the_view_through_direction_queries(self) -> None:
+    def test_keys_steer_the_view_through_direction_queries(self) -> None:
         events = [
             [],
             key_down(pygame.K_LEFT),
             key_down(pygame.K_RIGHT),
             key_down(pygame.K_RIGHT),
+            key_down(pygame.K_DOWN),
+            key_down(pygame.K_DOWN),
+            key_down(pygame.K_UP),
             key_down(pygame.K_r),
             key_down(pygame.K_q),
         ]
@@ -74,10 +79,19 @@ class ViewerRunTests(unittest.TestCase):
 
         self.assertEqual(
             [
-                None if payload is None else parse_view_direction(payload)
-                for payload in self.requested_payloads
+                None if direction is None else (direction.yaw_deg, direction.pitch_deg)
+                for direction in self.requested_directions
             ],
-            [None, 35.0, 30.0, 25.0, 0.0],
+            [
+                None,
+                (35.0, 85.0),
+                (30.0, 85.0),
+                (25.0, 85.0),
+                (25.0, 90.0),
+                (25.0, 90.0),
+                (25.0, 85.0),
+                (0.0, 0.0),
+            ],
         )
         self.assertEqual(
             {call.args[0] for call in self.session.get.call_args_list},
@@ -85,7 +99,10 @@ class ViewerRunTests(unittest.TestCase):
         )
         rendered_lines = [call.args[0] for call in render.call_args_list]
         self.assertIn("Yaw: +25.0 deg", rendered_lines)
+        self.assertIn("Pitch: +90.0 deg", rendered_lines)
+        self.assertIn("Pitch: +0.0 deg", rendered_lines)
         self.assertIn("Left / Right: turn", rendered_lines)
+        self.assertIn("Up / Down: tilt", rendered_lines)
 
     def test_window_follows_the_received_image_and_closes(self) -> None:
         set_mode, _ = self.run_viewer([[], [pygame.event.Event(pygame.QUIT)]])

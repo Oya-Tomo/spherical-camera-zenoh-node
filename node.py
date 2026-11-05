@@ -14,7 +14,7 @@ from typing import Annotated, NoReturn
 
 import cv2
 import zenoh
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from config import (
     DualFisheyeLenses,
@@ -52,24 +52,27 @@ class ViewDirection(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
     yaw_deg: Annotated[float, Field(allow_inf_nan=False)]
+    pitch_deg: Annotated[float, Field(allow_inf_nan=False)]
+
+    @field_validator("yaw_deg")
+    @classmethod
+    def normalize_yaw_deg(cls, yaw_deg: float) -> float:
+        wrapped_yaw_deg = math.fmod(yaw_deg, 360.0)
+        if wrapped_yaw_deg <= -180.0:
+            return wrapped_yaw_deg + 360.0
+        if wrapped_yaw_deg > 180.0:
+            return wrapped_yaw_deg - 360.0
+        return wrapped_yaw_deg
+
+    @field_validator("pitch_deg")
+    @classmethod
+    def clamp_pitch_deg(cls, pitch_deg: float) -> float:
+        return min(max(pitch_deg, -90.0), 90.0)
 
 
-def normalize_yaw_deg(yaw_deg: float) -> float:
-    wrapped_yaw_deg = math.fmod(yaw_deg, 360.0)
-    if wrapped_yaw_deg <= -180.0:
-        return wrapped_yaw_deg + 360.0
-    if wrapped_yaw_deg > 180.0:
-        return wrapped_yaw_deg - 360.0
-    return wrapped_yaw_deg
-
-
-def encode_view_direction(yaw_deg: float) -> bytes:
-    return ViewDirection(yaw_deg=yaw_deg).model_dump_json().encode()
-
-
-def parse_view_direction(payload: bytes) -> float:
+def parse_view_direction(payload: bytes) -> ViewDirection:
     try:
-        return ViewDirection.model_validate_json(payload).yaw_deg
+        return ViewDirection.model_validate_json(payload)
     except ValidationError as error:
         reasons = (
             f"{'.'.join(map(str, detail['loc'])) or 'payload'}: {detail['msg']}"
@@ -92,7 +95,7 @@ def encode_jpeg(image: cv2.typing.MatLike, quality: int) -> bytes:
 class ViewChannel:
     def __init__(
         self,
-        initial_yaw_deg: float,
+        initial_direction: ViewDirection,
         views: ViewsConfig,
         lenses: DualFisheyeLenses,
         mount: MountConfig,
@@ -105,40 +108,44 @@ class ViewChannel:
         self._publisher = publisher
         self._direction_key = direction_key
         self._lock = Lock()
-        self._yaw_deg = normalize_yaw_deg(initial_yaw_deg)
-        self._remap_yaw_deg: float | None = None
+        self._direction = initial_direction
+        self._remap_direction: ViewDirection | None = None
         self._remap_table: RemapTable | None = None
 
     def answer_direction_query(self, query: zenoh.Query) -> None:
         if query.payload is None:
             with self._lock:
-                yaw_deg = self._yaw_deg
+                direction = self._direction
         else:
             try:
-                requested_yaw_deg = parse_view_direction(query.payload.to_bytes())
+                direction = parse_view_direction(query.payload.to_bytes())
             except ValueError as error:
                 query.reply_err(str(error), encoding=TEXT_ENCODING)
                 return
-            yaw_deg = normalize_yaw_deg(requested_yaw_deg)
             with self._lock:
-                self._yaw_deg = yaw_deg
+                self._direction = direction
         query.reply(
-            self._direction_key, encode_view_direction(yaw_deg), encoding=JSON_ENCODING
+            self._direction_key, direction.model_dump_json(), encoding=JSON_ENCODING
         )
 
     def publish(self, frame: cv2.typing.MatLike) -> None:
         with self._lock:
-            yaw_deg = self._yaw_deg
-        if self._remap_table is None or yaw_deg != self._remap_yaw_deg:
+            direction = self._direction
+        if self._remap_table is None or direction != self._remap_direction:
             self._remap_table = build_remap_table(
-                perspective_rays(self._views.size, self._views.fov_deg, yaw_deg),
+                perspective_rays(
+                    self._views.size,
+                    self._views.fov_deg,
+                    direction.yaw_deg,
+                    direction.pitch_deg,
+                ),
                 self._lenses,
                 self._mount,
             )
-            self._remap_yaw_deg = yaw_deg
+            self._remap_direction = direction
         self._publisher.put(
             encode_jpeg(self._remap_table.apply(frame), self._views.jpeg_quality),
-            attachment=encode_view_direction(yaw_deg),
+            attachment=direction.model_dump_json(),
         )
 
 
@@ -225,7 +232,9 @@ def run(zenoh_config: zenoh.Config, node_config: NodeConfig) -> NoReturn:
                 image_key = f"{prefix}/view/{view.view_key}"
                 direction_key = view_direction_key(image_key)
                 view_channel = ViewChannel(
-                    view.initial_yaw_deg,
+                    ViewDirection(
+                        yaw_deg=view.initial_yaw_deg, pitch_deg=view.initial_pitch_deg
+                    ),
                     views,
                     node_config.lenses,
                     node_config.mount,

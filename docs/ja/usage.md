@@ -21,7 +21,8 @@ $ uv run node.py
 | `views.size` | 全viewの出力`[width, height]` |
 | `views.jpeg_quality` | 0〜100のJPEG品質 |
 | `views.channels[].view_key` | viewを表す一意な単一key segment |
-| `views.channels[].initial_yaw_deg` | 起動時のviewの向き。省略時は`0` |
+| `views.channels[].initial_yaw_deg` | 起動時のviewの水平方向の向き。省略時は`0` |
+| `views.channels[].initial_pitch_deg` | 起動時のviewの上下方向の向き。`-90`〜`90`、省略時は`0` |
 | `publisher.publish_frequency_hz` | 目標出力周波数。上限はカメラの15 fps |
 | `publisher.congestion_control` | `drop`、`block`、`block_first` |
 | `publisher.reliability` | `best_effort`または`reliable` |
@@ -35,16 +36,20 @@ THETA Sの解像度は1°あたり約3pixelです。`views.fov_deg`を狭める�
 | キー | 種類 | Payload |
 | --- | --- | --- |
 | `{prefix}/equirectangular` | Publication | 360° x 180°のequirectangular JPEG（`image/jpeg`）。前方が水平中央 |
-| `{prefix}/view/{view_key}` | Publication | 透視投影JPEG（`image/jpeg`）。向きを表すJSON attachment `{"yaw_deg": <number>}`付き |
+| `{prefix}/view/{view_key}` | Publication | 透視投影JPEG（`image/jpeg`）。写っている向きを表すJSON attachment `{"yaw_deg": <number>, "pitch_deg": <number>}`付き |
 | `{prefix}/view/{view_key}/direction` | Queryable | 下記参照 |
 
-向きは基準座標系で表します。yaw `0`が前方で、正のyawは左向きです。すべてのviewは水平方向を向きます。
+viewの向きは、基準座標系（x前、y左、z上）でのyawとpitchで表します。符号は[`mount`](setup.md#取り付け向き)と同じです。
+
+- `yaw_deg`は前方が`0`で、左向きが正です。任意の有限値を受け付け、`(-180, 180]`に正規化します。
+- `pitch_deg`は水平が`0`で、下向きが正です。任意の有限値を受け付け、範囲外の値は`-90`または`90`にします。
+- viewはrollしないため、どのview画像でも水平線は傾きません。
 
 direction keyへのqueryは次のように応答します。
 
-- payloadなしの場合は、現在の向きをJSON（`application/json`）`{"yaw_deg": <number>}`で返します。
-- JSON payload `{"yaw_deg": <number>}`付きの場合は、向きを設定し、`(-180, 180]`に正規化して適用した向きを返します。
-- 不正なpayloadの場合は、理由を書いたerror reply（`text/plain`）を返し、向きは変わりません。
+- payloadなしの場合は、現在の向きをJSON（`application/json`）`{"yaw_deg": <number>, "pitch_deg": <number>}`で返します。
+- JSON payload `{"yaw_deg": <number>, "pitch_deg": <number>}`付きの場合は、向きを設定し、適用した向きを返します。
+- fieldの欠落、余分なfield、有限でない値など、不正なpayloadの場合は、理由を書いたerror reply（`text/plain`）を返し、向きは変わりません。
 
 設定に成功した後に取得したframeは新しい向きを写し、画像のattachmentで確認できます。各viewは独立して制御され、最後のrequestが優先されます。自分専用の向きが必要なclientには別の`view_key`を割り当ててください。
 
@@ -56,7 +61,7 @@ import zenoh
 with zenoh.open(zenoh.Config()) as session:
     replies = session.get(
         "spherical_camera/view/main/direction",
-        payload=json.dumps({"yaw_deg": 90}),
+        payload=json.dumps({"yaw_deg": 90, "pitch_deg": 30}),
         encoding="application/json",
         timeout=1.0,
     )
@@ -73,8 +78,9 @@ $ uv run --group example examples/viewer.py spherical_camera/view/sub
 
 | キー | 動作 |
 | --- | --- |
-| `Left` / `Right` | viewを5°回転。押し続けると回り続けます |
-| `R` | 前方（yaw `0`）を向く |
+| `Left` / `Right` | viewを左右に5°回転。押し続けると回り続けます |
+| `Up` / `Down` | viewを上下に5°傾ける。真上または真下まで傾き、押し続けると傾き続けます |
+| `R` | 前方を水平に向く（yaw `0`、pitch `0`） |
 | `Q` / `Esc` | 終了 |
 
-viewerは起動時にノードから現在の向きを読み込むため、接続しただけでviewが動くことはありません。向きとキー操作はwindow上に文字で表示されます。`examples/viewer-zenoh-config.json5`は`tcp/127.0.0.1:7447`へ接続します。別hostへ接続する場合は`--zenoh-config`を指定してください。
+viewerは起動時にノードから現在の向きを読み込むため、接続しただけでviewが動くことはありません。現在のyaw、pitchとキー操作はwindow上に文字で表示されます。`examples/viewer-zenoh-config.json5`は`tcp/127.0.0.1:7447`へ接続します。別hostへ接続する場合は`--zenoh-config`を指定してください。
