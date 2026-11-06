@@ -40,7 +40,7 @@ KEY_HELP_LINES = (
     "R: face forward and level",
     "Q / Esc: quit",
 )
-YAW_PITCH_STEPS_BY_KEY = {
+DIRECTION_STEPS_BY_KEY = {
     pygame.K_LEFT: (DIRECTION_STEP_DEG, 0.0),
     pygame.K_RIGHT: (-DIRECTION_STEP_DEG, 0.0),
     pygame.K_UP: (0.0, -DIRECTION_STEP_DEG),
@@ -101,8 +101,8 @@ def run(zenoh_config: zenoh.Config, view_image_key: str) -> None:
                             ViewDirection(yaw_deg=0.0, pitch_deg=0.0)
                         )
                         needs_redraw = True
-                    elif (steps := YAW_PITCH_STEPS_BY_KEY.get(event.key)) is not None:
-                        yaw_step_deg, pitch_step_deg = steps
+                    elif event.key in DIRECTION_STEPS_BY_KEY:
+                        yaw_step_deg, pitch_step_deg = DIRECTION_STEPS_BY_KEY[event.key]
                         direction = request_direction(
                             ViewDirection(
                                 yaw_deg=direction.yaw_deg + yaw_step_deg,
