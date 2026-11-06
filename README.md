@@ -18,7 +18,7 @@ Put the THETA S into live streaming mode, connect it over USB, and set `source` 
 $ uv run node.py
 ```
 
-Display a view and turn it with the arrow keys:
+Display a view and turn or tilt it with the arrow keys:
 
 ```console
 $ uv run --group example examples/viewer.py spherical_camera/view/sub

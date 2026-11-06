@@ -1,4 +1,4 @@
-"""Display a spherical camera view over Zenoh and turn it with the keyboard."""
+"""Display a spherical camera view over Zenoh and steer it with the keyboard."""
 
 from __future__ import annotations
 
@@ -17,8 +17,7 @@ import zenoh
 
 from node import (
     JSON_ENCODING,
-    encode_view_direction,
-    normalize_yaw_deg,
+    ViewDirection,
     parse_view_direction,
     view_direction_key,
 )
@@ -27,7 +26,7 @@ DEFAULT_ZENOH_CONFIG_PATH = Path(__file__).with_name("viewer-zenoh-config.json5"
 WINDOW_TITLE = "spherical-camera-zenoh-node"
 INITIAL_WINDOW_SIZE = (640, 480)
 DIRECTION_QUERY_TIMEOUT_SECONDS = 1.0
-YAW_STEP_DEG = 5.0
+DIRECTION_STEP_DEG = 5.0
 KEY_REPEAT_DELAY_MS = 250
 KEY_REPEAT_INTERVAL_MS = 50
 EVENT_POLL_INTERVAL_MS = 10
@@ -35,8 +34,18 @@ FONT_SIZE = 24
 TEXT_MARGIN = 8
 TEXT_COLOR = (255, 255, 255)
 TEXT_BACKGROUND_COLOR = (0, 0, 0)
-KEY_HELP_LINES = ("Left / Right: turn", "R: face forward", "Q / Esc: quit")
-YAW_STEPS_BY_KEY = {pygame.K_LEFT: YAW_STEP_DEG, pygame.K_RIGHT: -YAW_STEP_DEG}
+KEY_HELP_LINES = (
+    "Left / Right: turn",
+    "Up / Down: tilt",
+    "R: face forward and level",
+    "Q / Esc: quit",
+)
+DIRECTION_STEPS_BY_KEY = {
+    pygame.K_LEFT: (DIRECTION_STEP_DEG, 0.0),
+    pygame.K_RIGHT: (-DIRECTION_STEP_DEG, 0.0),
+    pygame.K_UP: (0.0, -DIRECTION_STEP_DEG),
+    pygame.K_DOWN: (0.0, DIRECTION_STEP_DEG),
+}
 QUIT_KEYS = {pygame.K_q, pygame.K_ESCAPE}
 
 
@@ -50,7 +59,8 @@ def run(zenoh_config: zenoh.Config, view_image_key: str) -> None:
         ) as subscriber,
     ):
 
-        def request_direction(payload: bytes | None) -> float:
+        def request_direction(target: ViewDirection | None) -> ViewDirection:
+            payload = None if target is None else target.model_dump_json()
             replies = session.get(
                 direction_key,
                 payload=payload,
@@ -66,8 +76,8 @@ def run(zenoh_config: zenoh.Config, view_image_key: str) -> None:
                     )
             raise RuntimeError(f"no node answered on '{direction_key}'")
 
-        yaw_deg = request_direction(None)
-        print(f"[INFO] Showing '{view_image_key}', turning via '{direction_key}'.")
+        direction = request_direction(None)
+        print(f"[INFO] Showing '{view_image_key}', steering via '{direction_key}'.")
 
         pygame.display.init()
         pygame.font.init()
@@ -87,12 +97,17 @@ def run(zenoh_config: zenoh.Config, view_image_key: str) -> None:
                     if event.type != pygame.KEYDOWN:
                         continue
                     if event.key == pygame.K_r:
-                        yaw_deg = request_direction(encode_view_direction(0.0))
+                        direction = request_direction(
+                            ViewDirection(yaw_deg=0.0, pitch_deg=0.0)
+                        )
                         needs_redraw = True
-                    elif (yaw_step_deg := YAW_STEPS_BY_KEY.get(event.key)) is not None:
-                        target_yaw_deg = normalize_yaw_deg(yaw_deg + yaw_step_deg)
-                        yaw_deg = request_direction(
-                            encode_view_direction(target_yaw_deg)
+                    elif event.key in DIRECTION_STEPS_BY_KEY:
+                        yaw_step_deg, pitch_step_deg = DIRECTION_STEPS_BY_KEY[event.key]
+                        direction = request_direction(
+                            ViewDirection(
+                                yaw_deg=direction.yaw_deg + yaw_step_deg,
+                                pitch_deg=direction.pitch_deg + pitch_step_deg,
+                            )
                         )
                         needs_redraw = True
 
@@ -115,7 +130,11 @@ def run(zenoh_config: zenoh.Config, view_image_key: str) -> None:
                     if image_surface is not None:
                         screen.blit(image_surface, (0, 0))
                     text_y = TEXT_MARGIN
-                    for line in (f"Yaw: {yaw_deg:+.1f} deg", *KEY_HELP_LINES):
+                    for line in (
+                        f"Yaw: {direction.yaw_deg:+.1f} deg",
+                        f"Pitch: {direction.pitch_deg:+.1f} deg",
+                        *KEY_HELP_LINES,
+                    ):
                         text = font.render(
                             line, True, TEXT_COLOR, TEXT_BACKGROUND_COLOR
                         )
@@ -131,7 +150,7 @@ def run(zenoh_config: zenoh.Config, view_image_key: str) -> None:
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Display a spherical camera view and turn it with the keyboard.",
+        description="Display a spherical camera view and steer it with the keyboard.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(

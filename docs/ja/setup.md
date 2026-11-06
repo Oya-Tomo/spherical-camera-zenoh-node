@@ -71,7 +71,7 @@ source: "/dev/v4l/by-id/usb-Ricoh_Company__Ltd._RICOH_THETA_S_00250209-video-ind
 - `pitch_deg`が正だとfrontレンズは下を向きます。
 - `roll_deg`が正だとカメラの上側は右に傾きます。
 
-yaw `0`のviewが前方を水平に向くよう`mount`を設定します。
+yaw `0`、pitch `0`のviewが前方を水平に向くよう`mount`を設定します。
 
 ## Zenohの接続
 

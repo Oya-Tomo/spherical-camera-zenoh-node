@@ -71,7 +71,7 @@ To check the geometry, start the node and turn a view to a seam with the viewer.
 - Positive `pitch_deg` tilts the front lens down.
 - Positive `roll_deg` tilts the top of the camera to the right.
 
-Set `mount` so that a view facing yaw `0` looks forward with a level horizon.
+Set `mount` so that a view at yaw `0` and pitch `0` looks forward with a level horizon.
 
 ## Zenoh connection
 
