@@ -77,12 +77,28 @@ class RayTests(unittest.TestCase):
                 np.testing.assert_allclose(rays[150, 200], expected_center, atol=0.01)
 
     def test_perspective_view_keeps_the_horizon_level_and_upright(self) -> None:
-        for yaw_deg, pitch_deg in ((0.0, 0.0), (135.0, -60.0), (-90.0, 90.0)):
+        cases = ((0.0, 0.0), (135.0, -60.0), (-90.0, 90.0), (30.0, -90.0))
+        for yaw_deg, pitch_deg in cases:
             with self.subTest(yaw_deg=yaw_deg, pitch_deg=pitch_deg):
-                heights = perspective_rays((40, 30), 90.0, yaw_deg, pitch_deg)[..., 2]
+                rays = perspective_rays((41, 31), 90.0, yaw_deg, pitch_deg)
+                yaw, pitch = math.radians(yaw_deg), math.radians(pitch_deg)
+                image_right = rays[15, -1] - rays[15, 0]
+                image_up = rays[0, 20] - rays[-1, 20]
 
-                np.testing.assert_allclose(heights, heights[:, ::-1], atol=1e-12)
-                self.assertTrue(np.all(heights[0] >= heights[-1] - 1e-12))
+                np.testing.assert_allclose(
+                    image_right / np.linalg.norm(image_right),
+                    [math.sin(yaw), -math.cos(yaw), 0.0],
+                    atol=1e-12,
+                )
+                np.testing.assert_allclose(
+                    image_up / np.linalg.norm(image_up),
+                    [
+                        math.sin(pitch) * math.cos(yaw),
+                        math.sin(pitch) * math.sin(yaw),
+                        math.cos(pitch),
+                    ],
+                    atol=1e-12,
+                )
 
     def test_rotation_matrix_follows_roll_pitch_yaw_convention(self) -> None:
         forward = np.array([1.0, 0.0, 0.0])

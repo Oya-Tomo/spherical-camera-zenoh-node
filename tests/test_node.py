@@ -34,7 +34,7 @@ SMALL_VIEWS = ViewsConfig.model_validate(
     }
 )
 NO_MOUNT = MountConfig(roll_deg=0.0, pitch_deg=0.0, yaw_deg=0.0)
-INITIAL_DIRECTION = ViewDirection(yaw_deg=370.0, pitch_deg=20.0)
+INITIAL_DIRECTION = ViewDirection(yaw_deg=360.0, pitch_deg=20.0)
 
 
 class StopLoop(Exception):
@@ -143,9 +143,7 @@ class ViewChannelTests(unittest.TestCase):
         key, reply_payload = query.reply.call_args.args
         self.assertEqual(key, "camera/dir")
         self.assertEqual(query.reply.call_args.kwargs, {"encoding": JSON_ENCODING})
-        self.assertEqual(
-            json.loads(reply_payload), {"yaw_deg": 10.0, "pitch_deg": 20.0}
-        )
+        self.assertEqual(json.loads(reply_payload), {"yaw_deg": 0.0, "pitch_deg": 20.0})
         self.assertEqual(direction, INITIAL_DIRECTION)
 
     def test_query_with_direction_steers_the_following_frames(self) -> None:
@@ -154,15 +152,16 @@ class ViewChannelTests(unittest.TestCase):
             b'{"yaw_deg": 0, "pitch_deg": 120}': {"yaw_deg": 0.0, "pitch_deg": 90.0},
             b'{"yaw_deg": 270, "pitch_deg": 0}': {"yaw_deg": -90.0, "pitch_deg": 0.0},
         }
-        jpeg_before, _ = self.publish()
+        previous_jpeg, _ = self.publish()
         for payload, expected in cases.items():
             with self.subTest(payload=payload):
                 query = self.answer(payload)
-                jpeg_after, direction = self.publish()
+                jpeg, direction = self.publish()
 
                 self.assertEqual(json.loads(query.reply.call_args.args[1]), expected)
                 self.assertEqual(direction.model_dump(), expected)
-                self.assertNotEqual(jpeg_after, jpeg_before)
+                self.assertNotEqual(jpeg, previous_jpeg)
+            previous_jpeg = jpeg
 
     def test_each_view_keeps_its_own_direction(self) -> None:
         other_publisher = MagicMock()
