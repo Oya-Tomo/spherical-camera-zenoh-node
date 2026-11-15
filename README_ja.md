@@ -10,6 +10,8 @@ RICOH THETA S用のZenohノードです。カメラのDual-Fisheye映像を360°
 $ uv sync
 $ cp config/zenoh-config.example.json5 config/zenoh-config.json5
 $ cp config/node-config.example.json5 config/node-config.json5
+$ cp examples/viewer-config.example.json5 examples/viewer-config.json5
+$ cp examples/viewer-zenoh-config.example.json5 examples/viewer-zenoh-config.json5
 ```
 
 THETA Sをライブストリーミングモードにして USB で接続し、`config/node-config.json5`の`source`をそのdeviceに設定します。リポジトリrootからノードを起動します。
@@ -21,7 +23,7 @@ $ uv run node.py
 viewを表示し、矢印キーで向きを変えます。
 
 ```console
-$ uv run --group example examples/viewer.py spherical_camera/view/sub
+$ uv run --group example examples/viewer.py
 ```
 
 ## ドキュメント

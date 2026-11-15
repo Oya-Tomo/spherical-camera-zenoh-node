@@ -1,0 +1,5 @@
+{
+  zenoh_key_prefix: "spherical_camera",
+  view_key: "sub",
+  direction_step_deg: 5.0,
+}

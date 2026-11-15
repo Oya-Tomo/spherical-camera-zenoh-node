@@ -13,3 +13,5 @@ wheels/
 # Machine-specific runtime configuration
 config/node-config.json5
 config/zenoh-config.json5
+examples/viewer-config.json5
+examples/viewer-zenoh-config.json5

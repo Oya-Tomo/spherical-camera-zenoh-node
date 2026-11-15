@@ -1,4 +1,4 @@
-"""Validated JSON5 settings for the spherical camera node."""
+"""Validated JSON5 settings for the spherical camera node and its clients."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from typing import Annotated, Literal, Self
 import json5
 import zenoh
 from pydantic import (
+    AfterValidator,
     BaseModel,
     ConfigDict,
     Field,
@@ -25,14 +26,24 @@ PositiveFloat = Annotated[float, Field(strict=True, gt=0, allow_inf_nan=False)]
 ImageSize = tuple[PositiveInt, PositiveInt]
 
 
-def _validate_concrete_key(key: str, field_name: str) -> str:
+def _validate_concrete_key(key: str) -> str:
     try:
         zenoh.KeyExpr(key)
     except zenoh.ZError as error:
-        raise ValueError(f"{field_name} must be a valid Zenoh key: {error}") from error
+        raise ValueError(f"must be a valid Zenoh key: {error}") from error
     if not key.strip() or "*" in key:
-        raise ValueError(f"{field_name} must be a non-empty key without wildcards")
+        raise ValueError("must be a non-empty key without wildcards")
     return key
+
+
+def _validate_single_key_segment(key: str) -> str:
+    if "/" in key:
+        raise ValueError("must be a single key segment")
+    return _validate_concrete_key(key)
+
+
+ZenohKeyPrefix = Annotated[StrictStr, AfterValidator(_validate_concrete_key)]
+ViewKey = Annotated[StrictStr, AfterValidator(_validate_single_key_segment)]
 
 
 class ConfigModel(BaseModel):
@@ -71,16 +82,9 @@ class EquirectangularConfig(ConfigModel):
 
 
 class ViewChannelConfig(ConfigModel):
-    view_key: StrictStr
+    view_key: ViewKey
     initial_yaw_deg: FiniteFloat = 0.0
     initial_pitch_deg: Annotated[float, Field(strict=True, ge=-90, le=90)] = 0.0
-
-    @field_validator("view_key")
-    @classmethod
-    def validate_view_key(cls, view_key: str) -> str:
-        if "/" in view_key:
-            raise ValueError("view_key must be a single key segment")
-        return _validate_concrete_key(view_key, "view_key")
 
 
 class ViewsConfig(ConfigModel):
@@ -107,18 +111,13 @@ class PublisherConfig(ConfigModel):
 
 
 class NodeConfig(ConfigModel):
-    zenoh_key_prefix: StrictStr
+    zenoh_key_prefix: ZenohKeyPrefix
     source: NonNegativeInt | Annotated[StrictStr, Field(pattern=r"\S")]
     mount: MountConfig
     lenses: DualFisheyeLenses
     equirectangular: EquirectangularConfig | None = None
     views: ViewsConfig | None = None
     publisher: PublisherConfig
-
-    @field_validator("zenoh_key_prefix")
-    @classmethod
-    def validate_zenoh_key_prefix(cls, prefix: str) -> str:
-        return _validate_concrete_key(prefix, "zenoh_key_prefix")
 
     @model_validator(mode="after")
     def validate_outputs(self) -> Self:
@@ -127,7 +126,13 @@ class NodeConfig(ConfigModel):
         return self
 
 
-def load_node_config(path: Path) -> NodeConfig:
+class ViewerConfig(ConfigModel):
+    zenoh_key_prefix: ZenohKeyPrefix
+    view_key: ViewKey
+    direction_step_deg: Annotated[float, Field(strict=True, gt=0, le=90)]
+
+
+def load_config[Config: ConfigModel](path: Path, config_type: type[Config]) -> Config:
     try:
         document = json5.loads(
             path.read_text(encoding="utf-8"), allow_duplicate_keys=False
@@ -135,6 +140,6 @@ def load_node_config(path: Path) -> NodeConfig:
     except ValueError as error:
         raise ValueError(f"{path}: invalid JSON5: {error}") from error
     try:
-        return NodeConfig.model_validate(document)
+        return config_type.model_validate(document)
     except ValidationError as error:
-        raise ValueError(f"{path}: invalid node configuration:\n{error}") from error
+        raise ValueError(f"{path}: invalid configuration:\n{error}") from error

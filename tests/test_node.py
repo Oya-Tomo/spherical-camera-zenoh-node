@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import cv2
 import numpy as np
 
-from config import MountConfig, NodeConfig, ViewsConfig, load_node_config
+from config import MountConfig, NodeConfig, ViewsConfig, load_config
 from node import (
     JPEG_ENCODING,
     JSON_ENCODING,
@@ -21,9 +21,10 @@ from node import (
     publish_frames,
     run,
     view_direction_key,
+    view_image_key,
 )
 
-EXAMPLE_CONFIG = load_node_config(Path("config/node-config.example.json5"))
+EXAMPLE_CONFIG = load_config(Path("config/node-config.example.json5"), NodeConfig)
 FRAME = np.random.default_rng(0).integers(0, 256, (720, 1280, 3), dtype=np.uint8)
 SMALL_VIEWS = ViewsConfig.model_validate(
     {
@@ -101,8 +102,9 @@ class ViewDirectionTests(unittest.TestCase):
                 parse_view_direction(payload)
 
     def test_direction_key_extends_the_view_image_key(self) -> None:
+        self.assertEqual(view_image_key("camera", "main"), "camera/view/main")
         self.assertEqual(
-            view_direction_key("camera/view/main"), "camera/view/main/direction"
+            view_direction_key("camera", "main"), "camera/view/main/direction"
         )
 
 
