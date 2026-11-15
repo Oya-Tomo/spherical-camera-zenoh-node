@@ -8,7 +8,7 @@ from typing import Any
 import zenoh
 from pydantic import ValidationError
 
-from config import NodeConfig, load_node_config
+from config import NodeConfig, ViewerConfig, load_config
 
 LENS = {
     "center": [320.0, 320.0],
@@ -16,7 +16,7 @@ LENS = {
     "fov_deg": 190.0,
     "rotation_deg": 0.0,
 }
-VALID_CONFIG: dict[str, Any] = {
+VALID_NODE_CONFIG: dict[str, Any] = {
     "zenoh_key_prefix": "camera/spherical",
     "source": "/dev/video4",
     "mount": {"roll_deg": 0.0, "pitch_deg": 0.0, "yaw_deg": 0.0},
@@ -39,8 +39,15 @@ VALID_CONFIG: dict[str, Any] = {
 }
 
 
+VALID_VIEWER_CONFIG: dict[str, Any] = {
+    "zenoh_key_prefix": "camera/spherical",
+    "view_key": "sub",
+    "direction_step_deg": 5.0,
+}
+
+
 def config_with(path: tuple[str | int, ...], value: object) -> dict[str, Any]:
-    document = copy.deepcopy(VALID_CONFIG)
+    document = copy.deepcopy(VALID_NODE_CONFIG)
     parent: Any = document
     for key in path[:-1]:
         parent = parent[key]
@@ -49,12 +56,12 @@ def config_with(path: tuple[str | int, ...], value: object) -> dict[str, Any]:
 
 
 def config_without(*fields: str) -> dict[str, Any]:
-    return {key: value for key, value in VALID_CONFIG.items() if key not in fields}
+    return {key: value for key, value in VALID_NODE_CONFIG.items() if key not in fields}
 
 
 class ExampleConfigTests(unittest.TestCase):
     def test_example_node_config_is_valid(self) -> None:
-        config = load_node_config(Path("config/node-config.example.json5"))
+        config = load_config(Path("config/node-config.example.json5"), NodeConfig)
 
         assert config.views is not None
         self.assertIsNotNone(config.equirectangular)
@@ -62,21 +69,35 @@ class ExampleConfigTests(unittest.TestCase):
             [view.view_key for view in config.views.channels], ["main", "sub"]
         )
 
+    def test_example_viewer_config_selects_a_view_of_the_example_node(self) -> None:
+        node_config = load_config(Path("config/node-config.example.json5"), NodeConfig)
+        viewer_config = load_config(
+            Path("examples/viewer-config.example.json5"), ViewerConfig
+        )
+
+        assert node_config.views is not None
+        self.assertEqual(viewer_config.zenoh_key_prefix, node_config.zenoh_key_prefix)
+        self.assertIn(
+            viewer_config.view_key,
+            [view.view_key for view in node_config.views.channels],
+        )
+        self.assertEqual(viewer_config.direction_step_deg, 5.0)
+
     def test_example_zenoh_configs_are_valid(self) -> None:
         modes = {
             path: json.loads(zenoh.Config.from_file(path).get_json("mode"))
             for path in (
                 "config/zenoh-config.example.json5",
-                "examples/viewer-zenoh-config.json5",
+                "examples/viewer-zenoh-config.example.json5",
             )
         }
 
-        self.assertEqual(list(modes.values()), ["peer", "client"])
+        self.assertEqual(list(modes.values()), ["peer", "peer"])
 
 
 class NodeConfigTests(unittest.TestCase):
     def test_initial_direction_defaults_to_forward_and_level(self) -> None:
-        config = NodeConfig.model_validate(VALID_CONFIG)
+        config = NodeConfig.model_validate(VALID_NODE_CONFIG)
 
         assert config.views is not None
         self.assertEqual(
@@ -149,21 +170,52 @@ class NodeConfigTests(unittest.TestCase):
                 NodeConfig.model_validate(document)
 
 
-class LoadNodeConfigTests(unittest.TestCase):
+class ViewerConfigTests(unittest.TestCase):
+    def test_step_accepts_angles_up_to_90_degrees(self) -> None:
+        for direction_step_deg in (0.5, 90.0):
+            with self.subTest(direction_step_deg=direction_step_deg):
+                config = ViewerConfig.model_validate(
+                    VALID_VIEWER_CONFIG | {"direction_step_deg": direction_step_deg}
+                )
+
+                self.assertEqual(config.direction_step_deg, direction_step_deg)
+
+    def test_every_field_is_required(self) -> None:
+        for field in VALID_VIEWER_CONFIG:
+            document = {
+                key: value for key, value in VALID_VIEWER_CONFIG.items() if key != field
+            }
+            with self.subTest(field=field), self.assertRaises(ValidationError):
+                ViewerConfig.model_validate(document)
+
+    def test_invalid_configs_are_rejected(self) -> None:
+        invalid_configs = {
+            "unknown field": {"unknown": 1},
+            "wildcard prefix": {"zenoh_key_prefix": "camera/*"},
+            "blank prefix": {"zenoh_key_prefix": " "},
+            "multi-segment view key": {"view_key": "a/b"},
+            "zero step": {"direction_step_deg": 0.0},
+            "step above 90": {"direction_step_deg": 90.5},
+            "step given as text": {"direction_step_deg": "5.0"},
+        }
+        for case, fields in invalid_configs.items():
+            with self.subTest(case=case), self.assertRaises(ValidationError):
+                ViewerConfig.model_validate(VALID_VIEWER_CONFIG | fields)
+
+
+class LoadConfigTests(unittest.TestCase):
     def load_text(self, text: str) -> NodeConfig:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory, "node.json5")
             path.write_text(text, encoding="utf-8")
-            return load_node_config(path)
+            return load_config(path, NodeConfig)
 
     def test_duplicate_json5_keys_are_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "invalid JSON5"):
             self.load_text("{source: 0, source: 1}")
 
     def test_validation_errors_name_the_file(self) -> None:
-        with self.assertRaisesRegex(
-            ValueError, r"node\.json5: invalid node configuration"
-        ):
+        with self.assertRaisesRegex(ValueError, r"node\.json5: invalid configuration"):
             self.load_text("{}")
 
 

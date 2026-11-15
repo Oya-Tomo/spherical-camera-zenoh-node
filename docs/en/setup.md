@@ -15,14 +15,18 @@ $ uv sync
 ```console
 $ cp config/zenoh-config.example.json5 config/zenoh-config.json5
 $ cp config/node-config.example.json5 config/node-config.json5
+$ cp examples/viewer-config.example.json5 examples/viewer-config.json5
+$ cp examples/viewer-zenoh-config.example.json5 examples/viewer-zenoh-config.json5
 ```
 
 | File | Purpose |
 | --- | --- |
-| `config/zenoh-config.json5` | Zenoh mode, endpoints, and scouting |
+| `config/zenoh-config.json5` | Zenoh mode, endpoints, and scouting of the node |
 | `config/node-config.json5` | Camera source, mount, lens geometry, outputs, and publisher QoS |
+| `examples/viewer-config.json5` | View and step angle of the viewer example |
+| `examples/viewer-zenoh-config.json5` | Zenoh mode, endpoints, and scouting of the viewer example |
 
-Both runtime files are ignored by Git. The node reads them from the current working directory, so start it from the repository root or pass `--zenoh-config` and `--node-config`.
+The runtime files are ignored by Git. The node and the viewer read their files from the current working directory, so start them from the repository root or pass `--zenoh-config` together with `--node-config` or `--viewer-config`. The two files under `examples/` are needed only for the viewer example.
 
 ## Live streaming mode
 
@@ -75,7 +79,9 @@ Set `mount` so that a view at yaw `0` and pitch `0` looks forward with a level h
 
 ## Zenoh connection
 
-The example runs as a peer that listens on TCP port 7447 and uses multicast scouting. `0.0.0.0` accepts connections on every local IPv4 interface; remote peers connect to an address of this host, such as `tcp/192.168.1.20:7447`. To join an existing router instead, use `mode: "client"` and list the router in `connect.endpoints`. See the [Zenoh deployment guide](https://zenoh.io/docs/getting-started/deployment/).
+The node example runs as a peer that listens on TCP port 7447 and uses multicast scouting. `0.0.0.0` accepts connections on every local IPv4 interface; remote peers connect to an address of this host, such as `tcp/192.168.1.20:7447`. To join an existing router instead, use `mode: "client"` and list the router in `connect.endpoints`. See the [Zenoh deployment guide](https://zenoh.io/docs/getting-started/deployment/).
+
+The viewer example also runs as a peer. It listens on the wildcard address with a port assigned by the operating system and finds the node by multicast scouting, so it runs unchanged on the node's machine and on another machine in the same network. When multicast scouting cannot reach the node, add the node's address, such as `tcp/192.168.1.20:7447`, to `connect.endpoints` in `examples/viewer-zenoh-config.json5`.
 
 ## Development checks
 

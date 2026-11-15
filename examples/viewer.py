@@ -15,18 +15,20 @@ import numpy as np
 import pygame
 import zenoh
 
+from config import ViewerConfig, load_config
 from node import (
     JSON_ENCODING,
     ViewDirection,
     parse_view_direction,
     view_direction_key,
+    view_image_key,
 )
 
-DEFAULT_ZENOH_CONFIG_PATH = Path(__file__).with_name("viewer-zenoh-config.json5")
+DEFAULT_ZENOH_CONFIG_PATH = Path("examples/viewer-zenoh-config.json5")
+DEFAULT_VIEWER_CONFIG_PATH = Path("examples/viewer-config.json5")
 WINDOW_TITLE = "spherical-camera-zenoh-node"
 INITIAL_WINDOW_SIZE = (640, 480)
 DIRECTION_QUERY_TIMEOUT_SECONDS = 1.0
-DIRECTION_STEP_DEG = 5.0
 KEY_REPEAT_DELAY_MS = 250
 KEY_REPEAT_INTERVAL_MS = 50
 EVENT_POLL_INTERVAL_MS = 10
@@ -41,21 +43,23 @@ KEY_HELP_LINES = (
     "Q / Esc: quit",
 )
 DIRECTION_STEPS_BY_KEY = {
-    pygame.K_LEFT: (DIRECTION_STEP_DEG, 0.0),
-    pygame.K_RIGHT: (-DIRECTION_STEP_DEG, 0.0),
-    pygame.K_UP: (0.0, -DIRECTION_STEP_DEG),
-    pygame.K_DOWN: (0.0, DIRECTION_STEP_DEG),
+    pygame.K_LEFT: (1, 0),
+    pygame.K_RIGHT: (-1, 0),
+    pygame.K_UP: (0, -1),
+    pygame.K_DOWN: (0, 1),
 }
 QUIT_KEYS = {pygame.K_q, pygame.K_ESCAPE}
 
 
-def run(zenoh_config: zenoh.Config, view_image_key: str) -> None:
+def run(zenoh_config: zenoh.Config, viewer_config: ViewerConfig) -> None:
     zenoh.init_log_from_env_or("error")
-    direction_key = view_direction_key(view_image_key)
+    prefix = viewer_config.zenoh_key_prefix
+    image_key = view_image_key(prefix, viewer_config.view_key)
+    direction_key = view_direction_key(prefix, viewer_config.view_key)
     with (
         zenoh.open(zenoh_config) as session,
         session.declare_subscriber(
-            view_image_key, zenoh.handlers.RingChannel(1)
+            image_key, zenoh.handlers.RingChannel(1)
         ) as subscriber,
     ):
 
@@ -77,7 +81,7 @@ def run(zenoh_config: zenoh.Config, view_image_key: str) -> None:
             raise RuntimeError(f"no node answered on '{direction_key}'")
 
         direction = request_direction(None)
-        print(f"[INFO] Showing '{view_image_key}', steering via '{direction_key}'.")
+        print(f"[INFO] Showing '{image_key}', steering via '{direction_key}'.")
 
         pygame.display.init()
         pygame.font.init()
@@ -102,11 +106,12 @@ def run(zenoh_config: zenoh.Config, view_image_key: str) -> None:
                         )
                         needs_redraw = True
                     elif event.key in DIRECTION_STEPS_BY_KEY:
-                        yaw_step_deg, pitch_step_deg = DIRECTION_STEPS_BY_KEY[event.key]
+                        yaw_steps, pitch_steps = DIRECTION_STEPS_BY_KEY[event.key]
+                        step_deg = viewer_config.direction_step_deg
                         direction = request_direction(
                             ViewDirection(
-                                yaw_deg=direction.yaw_deg + yaw_step_deg,
-                                pitch_deg=direction.pitch_deg + pitch_step_deg,
+                                yaw_deg=direction.yaw_deg + yaw_steps * step_deg,
+                                pitch_deg=direction.pitch_deg + pitch_steps * step_deg,
                             )
                         )
                         needs_redraw = True
@@ -154,20 +159,26 @@ def main(argv: Sequence[str] | None = None) -> int:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
-        "view_image_key",
-        help="Zenoh key of a view, such as spherical_camera/view/sub.",
-    )
-    parser.add_argument(
         "--zenoh-config",
         type=Path,
         default=DEFAULT_ZENOH_CONFIG_PATH,
         metavar="FILE",
         help="Zenoh JSON5 configuration file.",
     )
+    parser.add_argument(
+        "--viewer-config",
+        type=Path,
+        default=DEFAULT_VIEWER_CONFIG_PATH,
+        metavar="FILE",
+        help="Viewer JSON5 configuration file.",
+    )
     args = parser.parse_args(argv)
 
     try:
-        run(zenoh.Config.from_file(args.zenoh_config), args.view_image_key)
+        run(
+            zenoh.Config.from_file(args.zenoh_config),
+            load_config(args.viewer_config, ViewerConfig),
+        )
     except KeyboardInterrupt:
         print("\n[INFO] Stopped.")
     except (

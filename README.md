@@ -10,6 +10,8 @@ A Zenoh node for a RICOH THETA S. It turns the camera's dual-fisheye stream into
 $ uv sync
 $ cp config/zenoh-config.example.json5 config/zenoh-config.json5
 $ cp config/node-config.example.json5 config/node-config.json5
+$ cp examples/viewer-config.example.json5 examples/viewer-config.json5
+$ cp examples/viewer-zenoh-config.example.json5 examples/viewer-zenoh-config.json5
 ```
 
 Put the THETA S into live streaming mode, connect it over USB, and set `source` in `config/node-config.json5` to its device. Start the node from the repository root:
@@ -21,7 +23,7 @@ $ uv run node.py
 Display a view and turn or tilt it with the arrow keys:
 
 ```console
-$ uv run --group example examples/viewer.py spherical_camera/view/sub
+$ uv run --group example examples/viewer.py
 ```
 
 ## Documentation

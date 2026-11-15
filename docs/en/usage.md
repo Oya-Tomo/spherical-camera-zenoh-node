@@ -73,14 +73,29 @@ with zenoh.open(zenoh.Config()) as session:
 ## Viewer
 
 ```console
-$ uv run --group example examples/viewer.py spherical_camera/view/sub
+$ uv run --group example examples/viewer.py
 ```
+
+| Option | Default |
+| --- | --- |
+| `--viewer-config FILE` | `examples/viewer-config.json5` |
+| `--zenoh-config FILE` | `examples/viewer-zenoh-config.json5` |
+
+The view is selected by the viewer configuration alone. See [`examples/viewer-config.example.json5`](../../examples/viewer-config.example.json5) for a complete example. Unknown, missing, duplicate, or mistyped fields are rejected at startup. [Setup](setup.md#zenoh-connection) explains the Zenoh connection of the viewer.
+
+| Key | Description |
+| --- | --- |
+| `zenoh_key_prefix` | Concrete Zenoh key under which the node publishes; must match the node |
+| `view_key` | Single key segment naming the view to display and steer |
+| `direction_step_deg` | Angle of one turn or tilt step, greater than `0` and at most `90` |
+
+The viewer displays `{zenoh_key_prefix}/view/{view_key}` and steers it through `{zenoh_key_prefix}/view/{view_key}/direction`.
 
 | Key | Action |
 | --- | --- |
-| `Left` / `Right` | Turn the view by 5°; holding a key keeps turning |
-| `Up` / `Down` | Tilt the view by 5° up to straight up or down; holding a key keeps tilting |
+| `Left` / `Right` | Turn the view by `direction_step_deg`; holding a key keeps turning |
+| `Up` / `Down` | Tilt the view by `direction_step_deg` up to straight up or down; holding a key keeps tilting |
 | `R` | Face forward and level (yaw `0`, pitch `0`) |
 | `Q` / `Esc` | Quit |
 
-The viewer reads the current direction from the node at startup, so connecting does not move the view, and draws the current yaw, pitch, and key operations on the window. `examples/viewer-zenoh-config.json5` connects to `tcp/127.0.0.1:7447`; pass `--zenoh-config` to reach another host.
+The viewer reads the current direction from the node at startup, so connecting does not move the view, and draws the current yaw, pitch, and key operations on the window.

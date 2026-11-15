@@ -73,14 +73,29 @@ with zenoh.open(zenoh.Config()) as session:
 ## Viewer
 
 ```console
-$ uv run --group example examples/viewer.py spherical_camera/view/sub
+$ uv run --group example examples/viewer.py
 ```
+
+| オプション | 既定値 |
+| --- | --- |
+| `--viewer-config FILE` | `examples/viewer-config.json5` |
+| `--zenoh-config FILE` | `examples/viewer-zenoh-config.json5` |
+
+表示するviewはviewer設定だけで決まります。完全な例は[`examples/viewer-config.example.json5`](../../examples/viewer-config.example.json5)にあります。未知、欠落、重複、型が不正なfieldは起動時に拒否されます。viewerのZenoh接続は[セットアップ](setup.md#zenohの接続)で説明しています。
+
+| キー | 説明 |
+| --- | --- |
+| `zenoh_key_prefix` | ノードがpublishするconcreteなZenoh key。ノードの設定と一致させます |
+| `view_key` | 表示して向きを変えるviewを表す単一key segment |
+| `direction_step_deg` | 回転または傾きの1 stepの角度。`0`より大きく`90`以下 |
+
+viewerは`{zenoh_key_prefix}/view/{view_key}`を表示し、`{zenoh_key_prefix}/view/{view_key}/direction`を通して向きを変えます。
 
 | キー | 動作 |
 | --- | --- |
-| `Left` / `Right` | viewを左右に5°回転。押し続けると回り続けます |
-| `Up` / `Down` | viewを上下に5°傾ける。真上または真下まで傾き、押し続けると傾き続けます |
+| `Left` / `Right` | viewを左右に`direction_step_deg`だけ回転。押し続けると回り続けます |
+| `Up` / `Down` | viewを上下に`direction_step_deg`だけ傾ける。真上または真下まで傾き、押し続けると傾き続けます |
 | `R` | 前方を水平に向く（yaw `0`、pitch `0`） |
 | `Q` / `Esc` | 終了 |
 
-viewerは起動時にノードから現在の向きを読み込むため、接続しただけでviewが動くことはありません。現在のyaw、pitchとキー操作はwindow上に文字で表示されます。`examples/viewer-zenoh-config.json5`は`tcp/127.0.0.1:7447`へ接続します。別hostへ接続する場合は`--zenoh-config`を指定してください。
+viewerは起動時にノードから現在の向きを読み込むため、接続しただけでviewが動くことはありません。現在のyaw、pitchとキー操作はwindow上に文字で表示されます。

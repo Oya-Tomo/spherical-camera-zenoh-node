@@ -21,7 +21,7 @@ from config import (
     MountConfig,
     NodeConfig,
     ViewsConfig,
-    load_node_config,
+    load_config,
 )
 from projection import (
     RemapTable,
@@ -81,8 +81,12 @@ def parse_view_direction(payload: bytes) -> ViewDirection:
         raise ValueError("; ".join(reasons)) from error
 
 
-def view_direction_key(view_image_key: str) -> str:
-    return f"{view_image_key}/direction"
+def view_image_key(zenoh_key_prefix: str, view_key: str) -> str:
+    return f"{zenoh_key_prefix}/view/{view_key}"
+
+
+def view_direction_key(zenoh_key_prefix: str, view_key: str) -> str:
+    return f"{view_image_key(zenoh_key_prefix, view_key)}/direction"
 
 
 def encode_jpeg(image: cv2.typing.MatLike, quality: int) -> bytes:
@@ -229,8 +233,8 @@ def run(zenoh_config: zenoh.Config, node_config: NodeConfig) -> NoReturn:
             )
         if (views := node_config.views) is not None:
             for view in views.channels:
-                image_key = f"{prefix}/view/{view.view_key}"
-                direction_key = view_direction_key(image_key)
+                image_key = view_image_key(prefix, view.view_key)
+                direction_key = view_direction_key(prefix, view.view_key)
                 view_channel = ViewChannel(
                     ViewDirection(
                         yaw_deg=view.initial_yaw_deg, pitch_deg=view.initial_pitch_deg
@@ -286,7 +290,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         run(
             zenoh.Config.from_file(args.zenoh_config),
-            load_node_config(args.node_config),
+            load_config(args.node_config, NodeConfig),
         )
     except KeyboardInterrupt:
         print("\n[INFO] Stopped.")

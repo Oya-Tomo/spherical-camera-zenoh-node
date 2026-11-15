@@ -15,14 +15,18 @@ $ uv sync
 ```console
 $ cp config/zenoh-config.example.json5 config/zenoh-config.json5
 $ cp config/node-config.example.json5 config/node-config.json5
+$ cp examples/viewer-config.example.json5 examples/viewer-config.json5
+$ cp examples/viewer-zenoh-config.example.json5 examples/viewer-zenoh-config.json5
 ```
 
 | ファイル | 用途 |
 | --- | --- |
-| `config/zenoh-config.json5` | Zenohのmode、endpoint、scouting |
+| `config/zenoh-config.json5` | ノードのZenohのmode、endpoint、scouting |
 | `config/node-config.json5` | カメラsource、取り付け向き、レンズ形状、出力、publisher QoS |
+| `examples/viewer-config.json5` | viewer exampleが表示するviewと1 stepの角度 |
+| `examples/viewer-zenoh-config.json5` | viewer exampleのZenohのmode、endpoint、scouting |
 
-どちらの実行時ファイルもGitの管理対象外です。ノードはcurrent working directoryから読み込むため、リポジトリrootで起動するか、`--zenoh-config`と`--node-config`を指定してください。
+実行時ファイルはいずれもGitの管理対象外です。ノードとviewerはそれぞれのファイルをcurrent working directoryから読み込むため、リポジトリrootで起動するか、`--zenoh-config`と、`--node-config`または`--viewer-config`を指定してください。`examples/`の2つのファイルは、viewer exampleを使う場合にだけ必要です。
 
 ## ライブストリーミングモード
 
@@ -75,7 +79,9 @@ yaw `0`、pitch `0`のviewが前方を水平に向くよう`mount`を設定し�
 
 ## Zenohの接続
 
-exampleはTCP port 7447でlistenし、multicast scoutingを使うpeerとして動作します。`0.0.0.0`はすべてのローカルIPv4 interfaceで接続を受け付ける指定です。相手側はこのhostに到達できるaddress（例: `tcp/192.168.1.20:7447`）へ接続します。既存のrouterへ接続する場合は`mode: "client"`にし、`connect.endpoints`にrouterを指定します。詳しくは[Zenoh deployment guide](https://zenoh.io/docs/getting-started/deployment/)を参照してください。
+ノードのexampleはTCP port 7447でlistenし、multicast scoutingを使うpeerとして動作します。`0.0.0.0`はすべてのローカルIPv4 interfaceで接続を受け付ける指定です。相手側はこのhostに到達できるaddress（例: `tcp/192.168.1.20:7447`）へ接続します。既存のrouterへ接続する場合は`mode: "client"`にし、`connect.endpoints`にrouterを指定します。詳しくは[Zenoh deployment guide](https://zenoh.io/docs/getting-started/deployment/)を参照してください。
+
+viewerのexampleもpeerとして動作します。wildcard addressでlistenし、portはOSが割り当て、ノードはmulticast scoutingで見つけます。そのため、ノードと同じマシンでも、同じnetwork内の別のマシンでも、exampleを変更せずに使えます。multicast scoutingでノードに届かない場合は、`examples/viewer-zenoh-config.json5`の`connect.endpoints`にノードのaddress（例: `tcp/192.168.1.20:7447`）を追加します。
 
 ## 開発時の検証
 
