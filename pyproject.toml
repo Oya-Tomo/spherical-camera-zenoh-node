@@ -1,6 +1,6 @@
 [project]
 name = "spherical-camera-zenoh-node"
-version = "0.1.0"
+version = "0.1.1"
 description = "Publish equirectangular and perspective view streams from a RICOH THETA S over Zenoh"
 readme = "README.md"
 requires-python = ">=3.13"
