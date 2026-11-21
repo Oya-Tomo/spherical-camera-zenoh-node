@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-RICOH THETA S用のZenohノードです。カメラのDual-Fisheye映像を360°のequirectangular画像と歪みのない透視投影viewに変換してJPEGでpublishし、各viewの向きを任意のZenoh clientから実行時に設定できます。
+RICOH THETA S用のZenohノードです。カメラのDual-Fisheye映像を360°のequirectangular画像と歪みのない透視投影viewに変換してJPEGでpublishします。各viewは、任意のZenoh clientから実行時に向きを設定できるsteerable viewか、設定した向きに固定されたfixed viewのどちらかです。
 
 ## クイックスタート
 

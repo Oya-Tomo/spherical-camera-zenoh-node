@@ -235,26 +235,34 @@ def run(zenoh_config: zenoh.Config, node_config: NodeConfig) -> NoReturn:
             for view in views.channels:
                 image_key = view_image_key(prefix, view.view_key)
                 direction_key = view_direction_key(prefix, view.view_key)
+                direction = ViewDirection(
+                    yaw_deg=view.direction.yaw_deg, pitch_deg=view.direction.pitch_deg
+                )
                 view_channel = ViewChannel(
-                    ViewDirection(
-                        yaw_deg=view.initial_yaw_deg, pitch_deg=view.initial_pitch_deg
-                    ),
+                    direction,
                     views,
                     node_config.lenses,
                     node_config.mount,
                     declare_image_publisher(image_key),
                     direction_key,
                 )
-                resources.enter_context(
-                    session.declare_queryable(
-                        direction_key, view_channel.answer_direction_query
-                    )
-                )
                 publishers.append(view_channel.publish)
-                print(
-                    f"[INFO] Publishing view images on '{image_key}' "
-                    f"with direction control on '{direction_key}'."
-                )
+                if view.fixed:
+                    print(
+                        f"[INFO] Publishing fixed view images on '{image_key}' "
+                        f"facing yaw {direction.yaw_deg:g} deg, "
+                        f"pitch {direction.pitch_deg:g} deg."
+                    )
+                else:
+                    resources.enter_context(
+                        session.declare_queryable(
+                            direction_key, view_channel.answer_direction_query
+                        )
+                    )
+                    print(
+                        f"[INFO] Publishing view images on '{image_key}' "
+                        f"with direction control on '{direction_key}'."
+                    )
 
         print(
             f"[INFO] Publishing at {publisher_config.publish_frequency_hz:g} Hz. "

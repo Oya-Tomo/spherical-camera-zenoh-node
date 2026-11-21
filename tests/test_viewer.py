@@ -20,16 +20,18 @@ EXAMPLE_ZENOH_CONFIG_PATH = "examples/viewer-zenoh-config.example.json5"
 EXAMPLE_VIEWER_CONFIG_PATH = "examples/viewer-config.example.json5"
 EXAMPLE_CONFIG = load_config(Path(EXAMPLE_VIEWER_CONFIG_PATH), ViewerConfig)
 INITIAL_DIRECTION = ViewDirection(yaw_deg=30.0, pitch_deg=85.0)
+FIXED_DIRECTION = ViewDirection(yaw_deg=180.0, pitch_deg=-20.0)
 
 
 def key_down(key: int) -> list[pygame.event.Event]:
     return [pygame.event.Event(pygame.KEYDOWN, key=key)]
 
 
-def image_sample(width: int, height: int) -> MagicMock:
+def image_sample(width: int, height: int, direction: ViewDirection) -> MagicMock:
     _, jpeg = cv2.imencode(".jpg", np.zeros((height, width, 3), dtype=np.uint8))
     sample = MagicMock()
     sample.payload.to_bytes.return_value = jpeg.tobytes()
+    sample.attachment.to_bytes.return_value = direction.model_dump_json().encode()
     return sample
 
 
@@ -38,8 +40,12 @@ class ViewerRunTests(unittest.TestCase):
         self.session = MagicMock()
         self.requested_directions: list[ViewDirection | None] = []
         self.session.get.side_effect = self.answer_direction_query
-        subscriber = self.session.declare_subscriber.return_value.__enter__.return_value
-        subscriber.try_recv.side_effect = [image_sample(64, 48)] + [None] * 100
+        self.subscriber = (
+            self.session.declare_subscriber.return_value.__enter__.return_value
+        )
+        self.subscriber.try_recv.side_effect = [
+            image_sample(64, 48, INITIAL_DIRECTION)
+        ] + [None] * 100
 
     def answer_direction_query(
         self, key: str, *, payload: str | None, **_: object
@@ -163,17 +169,68 @@ class ViewerRunTests(unittest.TestCase):
         self.assertEqual(set_mode.call_args.args[0], (64, 48))
         self.assertFalse(pygame.display.get_init())
 
-    def test_unanswered_and_failed_direction_queries_stop_the_viewer(self) -> None:
+    def test_fixed_view_is_displayed_without_steering(self) -> None:
+        self.session.get.side_effect = None
+        self.session.get.return_value = []
+        self.subscriber.try_recv.side_effect = [
+            image_sample(64, 48, FIXED_DIRECTION)
+        ] + [None] * 100
+        events = [
+            [],
+            key_down(pygame.K_LEFT),
+            key_down(pygame.K_RIGHT),
+            key_down(pygame.K_UP),
+            key_down(pygame.K_DOWN),
+            key_down(pygame.K_r),
+            key_down(pygame.K_q),
+        ]
+
+        set_mode, render = self.run_viewer(events)
+
+        self.assertEqual(self.session.get.call_count, 1)
+        self.assertIsNone(self.session.get.call_args.kwargs["payload"])
+        self.assertEqual(set_mode.call_args.args[0], (64, 48))
+        rendered_lines = {call.args[0] for call in render.call_args_list}
+        self.assertEqual(
+            rendered_lines,
+            {"Yaw: +180.0 deg", "Pitch: -20.0 deg", "Fixed view", "Q / Esc: quit"},
+        )
+
+    def test_failed_direction_query_stops_the_viewer(self) -> None:
         failed_reply = MagicMock(ok=None)
         failed_reply.err.payload.to_string.return_value = "bad yaw"
-        for replies, message in (([], "no node answered"), ([failed_reply], "bad yaw")):
-            self.session.get.side_effect = None
-            self.session.get.return_value = replies
-            with (
-                self.subTest(message=message),
-                self.assertRaisesRegex(RuntimeError, message),
-            ):
-                self.run_viewer([])
+        self.session.get.side_effect = None
+        self.session.get.return_value = [failed_reply]
+
+        with self.assertRaisesRegex(RuntimeError, "bad yaw"):
+            self.run_viewer([])
+
+    def test_unanswered_steering_request_stops_the_viewer(self) -> None:
+        self.session.get.side_effect = [
+            self.answer_direction_query("", payload=None),
+            [],
+        ]
+
+        with self.assertRaisesRegex(
+            RuntimeError, "no node answered on 'spherical_camera/view/sub/direction'"
+        ):
+            self.run_viewer([key_down(pygame.K_LEFT)])
+
+    def test_view_neither_answered_nor_published_stops_the_viewer(self) -> None:
+        self.session.get.side_effect = None
+        self.session.get.return_value = []
+        self.subscriber.try_recv.side_effect = None
+        self.subscriber.try_recv.return_value = None
+
+        with (
+            patch("examples.viewer.VIEW_IMAGE_TIMEOUT_SECONDS", 0.0),
+            self.assertRaisesRegex(
+                RuntimeError,
+                "no node answered on 'spherical_camera/view/sub/direction' "
+                "or published 'spherical_camera/view/sub'",
+            ),
+        ):
+            self.run_viewer([])
 
 
 class ViewerMainTests(unittest.TestCase):
