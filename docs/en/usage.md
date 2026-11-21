@@ -21,11 +21,15 @@ See [`config/node-config.example.json5`](../../config/node-config.example.json5)
 | `views.size` | Output `[width, height]` of every view |
 | `views.jpeg_quality` | JPEG quality from 0 to 100 |
 | `views.channels[].view_key` | Unique single key segment naming the view |
-| `views.channels[].initial_yaw_deg` | Horizontal direction of the view at startup; defaults to `0` |
-| `views.channels[].initial_pitch_deg` | Vertical direction of the view at startup, from `-90` to `90`; defaults to `0` |
+| `views.channels[].direction` | Direction of the view: the startup direction of a steerable view, the permanent direction of a fixed view; defaults to forward and level (`{yaw_deg: 0, pitch_deg: 0}`) for both kinds |
+| `views.channels[].direction.yaw_deg` | Horizontal direction, `0` for forward and positive to the left; any finite value, normalized to `(-180, 180]` |
+| `views.channels[].direction.pitch_deg` | Vertical direction, `0` for level and positive downward, from `-90` to `90` |
+| `views.channels[].fixed` | `true` for a fixed view, `false` for a steerable view; defaults to `false` |
 | `publisher.publish_frequency_hz` | Target output frequency, up to the camera's 15 fps |
 | `publisher.congestion_control` | `drop`, `block`, or `block_first` |
 | `publisher.reliability` | `best_effort` or `reliable` |
+
+A steerable view starts at its `direction` and is turned through its direction queryable. A fixed view has no direction queryable and always depicts its `direction`. A `direction` object needs both `yaw_deg` and `pitch_deg` and uses the reference frame and signs of the direction queryable described below. Steerable and fixed views can be mixed freely in `channels`.
 
 `equirectangular` and `views` are both optional, but at least one is required. Each captured frame is assigned to the nearest output slot of `publish_frequency_hz` and published once per slot, so a faster camera is downsampled evenly and late frames never cause a burst.
 
@@ -36,8 +40,8 @@ The THETA S resolves about 3 pixels per degree. A narrower `views.fov_deg` magni
 | Key | Interaction | Payload |
 | --- | --- | --- |
 | `{prefix}/equirectangular` | Publication | 360° x 180° equirectangular JPEG (`image/jpeg`), forward at the horizontal center |
-| `{prefix}/view/{view_key}` | Publication | Perspective JPEG (`image/jpeg`) with the JSON attachment `{"yaw_deg": <number>, "pitch_deg": <number>}` stating the direction it depicts |
-| `{prefix}/view/{view_key}/direction` | Queryable | See below |
+| `{prefix}/view/{view_key}` | Publication | Perspective JPEG (`image/jpeg`) in the current direction of a steerable view or the configured direction of a fixed view, with the JSON attachment `{"yaw_deg": <number>, "pitch_deg": <number>}` stating the direction it depicts |
+| `{prefix}/view/{view_key}/direction` | Queryable | Steerable views only; see below |
 
 A view direction is a yaw and a pitch in the reference frame (x forward, y left, z up), with the same signs as [`mount`](setup.md#mount-orientation):
 
@@ -52,6 +56,8 @@ A query on a direction key:
 - with a malformed payload, such as one missing a field, with an extra field, or with a non-finite value, receives an error reply (`text/plain`) that states the reason, and the direction stays unchanged.
 
 Frames captured after a successful set depict the new direction, which the image attachment confirms. Each view is controlled independently and the latest request wins, so give each client that needs its own direction a separate `view_key`.
+
+A fixed view declares no direction queryable, so a query on its direction key receives no reply. Its frames carry the same attachment, which always states the configured direction.
 
 ```python
 import json
@@ -86,10 +92,16 @@ The view is selected by the viewer configuration alone. See [`examples/viewer-co
 | Key | Description |
 | --- | --- |
 | `zenoh_key_prefix` | Concrete Zenoh key under which the node publishes; must match the node |
-| `view_key` | Single key segment naming the view to display and steer |
+| `view_key` | Single key segment naming the view to display |
 | `direction_step_deg` | Angle of one turn or tilt step, greater than `0` and at most `90` |
 
-The viewer displays `{zenoh_key_prefix}/view/{view_key}` and steers it through `{zenoh_key_prefix}/view/{view_key}/direction`.
+The viewer displays `{zenoh_key_prefix}/view/{view_key}` and decides at startup whether it is steerable or fixed:
+
+| At startup | The viewer |
+| --- | --- |
+| The node answers on `{zenoh_key_prefix}/view/{view_key}/direction` | Displays the view and steers it with the keys through that key |
+| The node publishes the view within 3 seconds but does not answer on the direction key | Displays the view as a fixed view |
+| The node neither answers on the direction key nor publishes the view | Stops with an error that names the view |
 
 | Key | Action |
 | --- | --- |
@@ -98,4 +110,6 @@ The viewer displays `{zenoh_key_prefix}/view/{view_key}` and steers it through `
 | `R` | Face forward and level (yaw `0`, pitch `0`) |
 | `Q` / `Esc` | Quit |
 
-The viewer reads the current direction from the node at startup, so connecting does not move the view, and draws the current yaw, pitch, and key operations on the window.
+For a steerable view, the viewer reads the current direction from the node at startup, so connecting does not move the view, and draws the current yaw, pitch, and key operations on the window.
+
+For a fixed view, the turn, tilt, and face-forward keys do nothing and the viewer sends no direction request. The window shows the yaw and pitch stated by the attachment of the displayed frame, states that the view is fixed, and lists only the quit keys.

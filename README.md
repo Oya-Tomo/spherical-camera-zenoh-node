@@ -2,7 +2,7 @@
 
 [日本語](README_ja.md)
 
-A Zenoh node for a RICOH THETA S. It turns the camera's dual-fisheye stream into a 360° equirectangular image and undistorted perspective views, publishes them as JPEG, and lets any Zenoh client set the direction of each view at runtime.
+A Zenoh node for a RICOH THETA S. It turns the camera's dual-fisheye stream into a 360° equirectangular image and undistorted perspective views and publishes them as JPEG. Each view is either steerable, with its direction set at runtime by any Zenoh client, or fixed in its configured direction.
 
 ## Quick start
 

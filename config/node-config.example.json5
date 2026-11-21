@@ -24,7 +24,8 @@
     jpeg_quality: 90,
     channels: [
       {view_key: "main"},
-      {view_key: "sub"},
+      {view_key: "sub", direction: {yaw_deg: 180.0, pitch_deg: 0.0}},
+      {view_key: "rear", direction: {yaw_deg: 180.0, pitch_deg: 0.0}, fixed: true},
     ],
   },
 

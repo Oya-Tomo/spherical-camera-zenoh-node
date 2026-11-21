@@ -28,7 +28,8 @@ VALID_NODE_CONFIG: dict[str, Any] = {
         "jpeg_quality": 90,
         "channels": [
             {"view_key": "main"},
-            {"view_key": "sub", "initial_yaw_deg": 180.0, "initial_pitch_deg": -30.0},
+            {"view_key": "sub", "direction": {"yaw_deg": 180.0, "pitch_deg": -30.0}},
+            {"view_key": "rear", "fixed": True},
         ],
     },
     "publisher": {
@@ -66,7 +67,8 @@ class ExampleConfigTests(unittest.TestCase):
         assert config.views is not None
         self.assertIsNotNone(config.equirectangular)
         self.assertEqual(
-            [view.view_key for view in config.views.channels], ["main", "sub"]
+            [(view.view_key, view.fixed) for view in config.views.channels],
+            [("main", False), ("sub", False), ("rear", True)],
         )
 
     def test_example_viewer_config_selects_a_view_of_the_example_node(self) -> None:
@@ -96,25 +98,33 @@ class ExampleConfigTests(unittest.TestCase):
 
 
 class NodeConfigTests(unittest.TestCase):
-    def test_initial_direction_defaults_to_forward_and_level(self) -> None:
+    def test_channels_default_to_steerable_views_facing_forward_and_level(
+        self,
+    ) -> None:
         config = NodeConfig.model_validate(VALID_NODE_CONFIG)
 
         assert config.views is not None
         self.assertEqual(
             [
-                (view.initial_yaw_deg, view.initial_pitch_deg)
+                (view.direction.yaw_deg, view.direction.pitch_deg, view.fixed)
                 for view in config.views.channels
             ],
-            [(0.0, 0.0), (180.0, -30.0)],
+            [(0.0, 0.0, False), (180.0, -30.0, False), (0.0, 0.0, True)],
         )
 
-    def test_initial_pitch_accepts_straight_up_and_down(self) -> None:
+    def test_direction_pitch_accepts_straight_up_and_down(self) -> None:
         for pitch_deg in (-90.0, 90.0):
             with self.subTest(pitch_deg=pitch_deg):
-                NodeConfig.model_validate(
+                config = NodeConfig.model_validate(
                     config_with(
-                        ("views", "channels", 0, "initial_pitch_deg"), pitch_deg
+                        ("views", "channels", 0, "direction"),
+                        {"yaw_deg": 0.0, "pitch_deg": pitch_deg},
                     )
+                )
+
+                assert config.views is not None
+                self.assertEqual(
+                    config.views.channels[0].direction.pitch_deg, pitch_deg
                 )
 
     def test_source_accepts_device_path_or_index(self) -> None:
@@ -150,15 +160,36 @@ class NodeConfigTests(unittest.TestCase):
             "multi-segment view key": config_with(
                 ("views", "channels", 0, "view_key"), "a/b"
             ),
-            "initial pitch above 90": config_with(
-                ("views", "channels", 0, "initial_pitch_deg"), 90.5
+            "direction without yaw": config_with(
+                ("views", "channels", 0, "direction"), {"pitch_deg": 0.0}
             ),
-            "initial pitch below -90": config_with(
-                ("views", "channels", 0, "initial_pitch_deg"), -120.0
+            "direction without pitch": config_with(
+                ("views", "channels", 0, "direction"), {"yaw_deg": 0.0}
             ),
-            "infinite initial yaw": config_with(
-                ("views", "channels", 0, "initial_yaw_deg"), float("inf")
+            "direction with roll": config_with(
+                ("views", "channels", 0, "direction"),
+                {"yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
             ),
+            "infinite direction yaw": config_with(
+                ("views", "channels", 0, "direction"),
+                {"yaw_deg": float("inf"), "pitch_deg": 0.0},
+            ),
+            "direction pitch not a number": config_with(
+                ("views", "channels", 0, "direction"),
+                {"yaw_deg": 0.0, "pitch_deg": float("nan")},
+            ),
+            "direction pitch above 90": config_with(
+                ("views", "channels", 0, "direction"),
+                {"yaw_deg": 0.0, "pitch_deg": 90.5},
+            ),
+            "direction pitch below -90": config_with(
+                ("views", "channels", 0, "direction"),
+                {"yaw_deg": 0.0, "pitch_deg": -120.0},
+            ),
+            "fixed given as text": config_with(
+                ("views", "channels", 0, "fixed"), "true"
+            ),
+            "fixed given as number": config_with(("views", "channels", 0, "fixed"), 1),
             "duplicate view keys": config_with(
                 ("views", "channels"), [{"view_key": "main"}, {"view_key": "main"}]
             ),
@@ -215,8 +246,20 @@ class LoadConfigTests(unittest.TestCase):
             self.load_text("{source: 0, source: 1}")
 
     def test_validation_errors_name_the_file(self) -> None:
-        with self.assertRaisesRegex(ValueError, r"node\.json5: invalid configuration"):
-            self.load_text("{}")
+        documents = {
+            "empty": {},
+            "fixed given as text": config_with(
+                ("views", "channels", 0, "fixed"), "true"
+            ),
+        }
+        for case, document in documents.items():
+            with (
+                self.subTest(case=case),
+                self.assertRaisesRegex(
+                    ValueError, r"node\.json5: invalid configuration"
+                ),
+            ):
+                self.load_text(json.dumps(document))
 
 
 if __name__ == "__main__":
