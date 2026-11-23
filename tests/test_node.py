@@ -48,6 +48,13 @@ def direction_query(payload: bytes | None) -> MagicMock:
     return query
 
 
+def node_config_with_channels(channels: list[dict[str, object]]) -> NodeConfig:
+    document = EXAMPLE_CONFIG.model_dump()
+    document["equirectangular"] = None
+    document["views"] = SMALL_VIEWS.model_dump() | {"channels": channels}
+    return NodeConfig.model_validate(document)
+
+
 class ViewDirectionTests(unittest.TestCase):
     def test_yaw_is_normalized_into_half_open_range(self) -> None:
         cases = {
@@ -257,7 +264,15 @@ class PublishFramesTests(unittest.TestCase):
 class RunTests(unittest.TestCase):
     def setUp(self) -> None:
         self.session = MagicMock()
+        self.session.declare_publisher.side_effect = self.declare_publisher
+        self.publishers: dict[str, MagicMock] = {}
         self.capture = MagicMock()
+
+    def declare_publisher(self, key_expression: str, **_: object) -> MagicMock:
+        publisher = MagicMock()
+        publisher.__enter__.return_value = publisher
+        self.publishers[key_expression] = publisher
+        return publisher
 
     def run_node(self, node_config: NodeConfig = EXAMPLE_CONFIG) -> MagicMock:
         with (
@@ -281,6 +296,7 @@ class RunTests(unittest.TestCase):
                 "spherical_camera/equirectangular",
                 "spherical_camera/view/main",
                 "spherical_camera/view/sub",
+                "spherical_camera/view/rear",
             ],
         )
         self.assertEqual(
@@ -293,16 +309,21 @@ class RunTests(unittest.TestCase):
                 "spherical_camera/view/sub/direction",
             ],
         )
-        self.assertEqual(len(publish_frames_mock.call_args.args[1]), 3)
+        self.assertEqual(len(publish_frames_mock.call_args.args[1]), 4)
         self.capture.release.assert_called_once_with()
 
     def test_views_start_at_their_configured_directions(self) -> None:
-        document = EXAMPLE_CONFIG.model_dump()
-        document["views"]["channels"] = [
-            {"view_key": "main"},
-            {"view_key": "sub", "initial_yaw_deg": -30.0, "initial_pitch_deg": 45.0},
-        ]
-        self.run_node(NodeConfig.model_validate(document))
+        self.run_node(
+            node_config_with_channels(
+                [
+                    {"view_key": "main"},
+                    {
+                        "view_key": "sub",
+                        "direction": {"yaw_deg": -30.0, "pitch_deg": 45.0},
+                    },
+                ]
+            )
+        )
 
         replied_directions: list[object] = []
         for call in self.session.declare_queryable.call_args_list:
@@ -315,6 +336,55 @@ class RunTests(unittest.TestCase):
                 {"yaw_deg": 0.0, "pitch_deg": 0.0},
                 {"yaw_deg": -30.0, "pitch_deg": 45.0},
             ],
+        )
+
+    def test_turning_a_steerable_view_leaves_the_other_views_unchanged(self) -> None:
+        publish_frames_mock = self.run_node(
+            node_config_with_channels(
+                [
+                    {"view_key": "main"},
+                    {
+                        "view_key": "sub",
+                        "direction": {"yaw_deg": -30.0, "pitch_deg": 45.0},
+                    },
+                    {
+                        "view_key": "rear",
+                        "direction": {"yaw_deg": 540.0, "pitch_deg": -20.0},
+                        "fixed": True,
+                    },
+                ]
+            )
+        )
+
+        self.assertEqual(
+            [call.args[0] for call in self.session.declare_queryable.call_args_list],
+            [
+                "spherical_camera/view/main/direction",
+                "spherical_camera/view/sub/direction",
+            ],
+        )
+        turn_main = self.session.declare_queryable.call_args_list[0].args[1]
+        turn_main(direction_query(b'{"yaw_deg": 90, "pitch_deg": 10}'))
+        for publish in publish_frames_mock.call_args.args[1]:
+            publish(FRAME)
+        self.assertEqual(
+            {
+                key: parse_view_direction(
+                    publisher.put.call_args.kwargs["attachment"].encode()
+                )
+                for key, publisher in self.publishers.items()
+            },
+            {
+                "spherical_camera/view/main": ViewDirection(
+                    yaw_deg=90.0, pitch_deg=10.0
+                ),
+                "spherical_camera/view/sub": ViewDirection(
+                    yaw_deg=-30.0, pitch_deg=45.0
+                ),
+                "spherical_camera/view/rear": ViewDirection(
+                    yaw_deg=180.0, pitch_deg=-20.0
+                ),
+            },
         )
 
     def test_unopened_camera_fails_before_declaring_channels(self) -> None:

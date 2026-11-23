@@ -12,6 +12,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    StrictBool,
     StrictStr,
     ValidationError,
     field_validator,
@@ -81,10 +82,15 @@ class EquirectangularConfig(ConfigModel):
         return size
 
 
+class ViewDirectionConfig(ConfigModel):
+    yaw_deg: FiniteFloat
+    pitch_deg: Annotated[float, Field(strict=True, ge=-90, le=90)]
+
+
 class ViewChannelConfig(ConfigModel):
     view_key: ViewKey
-    initial_yaw_deg: FiniteFloat = 0.0
-    initial_pitch_deg: Annotated[float, Field(strict=True, ge=-90, le=90)] = 0.0
+    direction: ViewDirectionConfig = ViewDirectionConfig(yaw_deg=0.0, pitch_deg=0.0)
+    fixed: StrictBool = False
 
 
 class ViewsConfig(ConfigModel):
